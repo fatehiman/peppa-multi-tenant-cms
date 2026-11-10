@@ -1,0 +1,16 @@
+{{define "content"}}
+<h1>{{.Page.Title}}</h1>
+{{.Page.Body}}
+{{range .Data.Items}}
+  <article class="item">
+    <h2><a href="{{.URL}}">{{.Title}}</a></h2>
+    <small>{{date .CreatedAt "2006-01-02"}}</small>
+    <p>{{excerpt .Body 200}}</p>
+  </article>
+{{end}}
+<nav class="pager">
+  {{with .Data.PrevURL}}<a href="{{.}}">←</a>{{end}}
+  {{if gt .Data.Pages 1}}<span>{{.Data.Page}} / {{.Data.Pages}}</span>{{end}}
+  {{with .Data.NextURL}}<a href="{{.}}">→</a>{{end}}
+</nav>
+{{end}}

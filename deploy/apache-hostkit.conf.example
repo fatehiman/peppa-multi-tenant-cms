@@ -1,0 +1,55 @@
+# Apache in front of hostkit (used when the server already runs Apache).
+# Name the file so it sorts LAST in sites-enabled/ (for example zz-hostkit.conf):
+# "ServerAlias *" makes it the catch-all for every host no other vhost claims,
+# so a new site needs no Apache change. Start hostkit with
+# -fallback-html <file> to keep showing a page for unknown hosts.
+# Needs: a2enmod proxy proxy_http headers macro ssl
+
+<Macro Hostkit>
+    ServerSignature Off
+    LimitRequestBody 33554432
+
+    AliasMatch "^/_t/([a-z0-9][a-z0-9-]*)/(.+)$" "/srv/hostkit/themes/$1/assets/$2"
+    AliasMatch "^/_m/([a-z0-9][a-z0-9-]*)/([^/]+)$" "/srv/hostkit/sites/$1/uploads/$2"
+    <DirectoryMatch "^/srv/hostkit/themes/[a-z0-9-]+/assets">
+        Require all granted
+        Options -Indexes
+        AllowOverride None
+        Header set Cache-Control "public, max-age=31536000"
+    </DirectoryMatch>
+    <DirectoryMatch "^/srv/hostkit/sites/[a-z0-9-]+/uploads">
+        Require all granted
+        Options -Indexes
+        AllowOverride None
+        Header set X-Content-Type-Options nosniff
+        Header set Cache-Control "public, max-age=2592000"
+    </DirectoryMatch>
+
+    ProxyPreserveHost On
+    ProxyPass /_t/ !
+    ProxyPass /_m/ !
+    ProxyPass / http://127.0.0.1:8080/
+    ProxyPassReverse / http://127.0.0.1:8080/
+    RequestHeader set X-Forwarded-Proto "https"
+</Macro>
+
+<VirtualHost *:80>
+    ServerName panel.example.com
+    ServerAlias *
+    Use Hostkit
+    ErrorLog  ${APACHE_LOG_DIR}/hostkit-error.log
+    CustomLog ${APACHE_LOG_DIR}/hostkit-access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName panel.example.com
+    ServerAlias *
+    SSLEngine on
+    SSLCertificateFile    /etc/ssl/certs/hostkit-origin.crt
+    SSLCertificateKeyFile /etc/ssl/private/hostkit-origin.key
+    Use Hostkit
+    ErrorLog  ${APACHE_LOG_DIR}/hostkit-error.log
+    CustomLog ${APACHE_LOG_DIR}/hostkit-ssl-access.log combined
+</VirtualHost>
+
+UndefMacro Hostkit

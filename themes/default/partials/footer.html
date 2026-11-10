@@ -1,0 +1,7 @@
+<footer class="site-footer">
+  <div class="container">
+    <ul class="footer-menu">{{range menu "footer"}}<li><a href="{{.URL}}">{{.Label}}</a></li>{{end}}</ul>
+    <p>{{with setting "footer_text"}}{{.}}{{else}}© {{date .Page.UpdatedAt "2006"}} {{.Site.Name}}{{end}}</p>
+    {{with setting "phone"}}<p>{{.}}</p>{{end}}
+  </div>
+</footer>

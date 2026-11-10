@@ -1,0 +1,19 @@
+{{define "main"}}
+<h1>Themes
+  <form method="post" action="/themes/reload" class="inline"><input type="hidden" name="_csrf" value="{{.CSRF}}">{{ibtn "refresh" "Reload themes and sites (after editing files on disk or restoring a backup)" "blue"}}</form>
+</h1>
+<p class="hint">Folder: <code>{{.D.Dir}}</code></p>
+<div class="card tbl">
+<table>
+  <tr><th>Folder</th><th>Page templates</th><th>Components</th><th>Used by</th></tr>
+  {{range .D.Themes}}
+  <tr>
+    <td><b>{{.Name}}</b>{{if .Title}}<div class="hint">{{.Title}}</div>{{end}}{{if .Error}}<div class="flash err" style="margin:6px 0 0">{{.Error}}</div>{{end}}</td>
+    <td>{{join .Pages ", "}}</td>
+    <td>{{join .Components ", "}}</td>
+    <td>{{join .Used ", "}}</td>
+  </tr>
+  {{else}}<tr><td colspan="4" class="muted">No themes found.</td></tr>{{end}}
+</table>
+</div>
+{{end}}

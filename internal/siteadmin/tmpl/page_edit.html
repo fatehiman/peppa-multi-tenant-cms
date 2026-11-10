@@ -1,0 +1,105 @@
+{{define "main"}}
+{{$p := .D.P}}
+<h1>{{.Title}} {{if not .D.IsNew}}{{ilinkNew (print .D.BaseURL) "eye" "View site" "blue"}}{{end}}</h1>
+<form method="post" action="{{.A}}/pages/save" id="pf">
+<input type="hidden" name="_csrf" value="{{.CSRF}}">
+<input type="hidden" name="id" value="{{$p.ID}}">
+<div class="tabs">
+  <button type="button" class="on" data-tab="content">Content</button>
+  <button type="button" data-tab="seo">SEO</button>
+</div>
+
+<div class="tab on" id="tab-content">
+<div class="card">
+  <div class="row">
+    <div><label for="title">Title</label><input id="title" name="title" value="{{$p.Title}}" placeholder="Page title" required></div>
+    <div><label for="slug">Route (slug) <span class="hint">empty = home page</span></label><input id="slug" name="slug" value="{{$p.Slug}}" placeholder="about-us or news/first-post" data-old="{{$p.Slug}}"></div>
+  </div>
+  {{if not .D.IsNew}}<label class="cb" id="redir-box" style="display:none"><input type="checkbox" name="add_redirect" value="1" checked> Add a 301 redirect from the old route <code>/{{$p.Slug}}</code></label>{{end}}
+  <div class="row">
+    <div><label for="template">Template</label>
+      <select id="template" name="template">{{range .D.Templates}}<option value="{{.}}" {{if or (eq . $p.Template) (and (eq . "default") (eq $p.Template ""))}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+    <div><label for="module">Module</label>
+      <select id="module" name="module"><option value="">none</option>{{range .D.Modules}}<option value="{{.}}" {{if eq . $p.Module}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+    <div><label for="status">Status</label>
+      <select id="status" name="status"><option value="draft">draft</option><option value="published" {{if eq $p.Status "published"}}selected{{end}}>published</option></select></div>
+  </div>
+  <label for="body">Body <span class="hint">HTML; may be empty when the template or module makes the content</span></label>
+  {{if .D.Components}}
+  <select id="comp" style="max-width:320px;margin-bottom:6px"><option value="">Insert component…</option>{{range .D.Components}}<option value="{{.Shortcode}}">{{.Name}}</option>{{end}}</select>
+  {{end}}
+  <textarea id="body" name="body_html" class="big" placeholder="<p>Text of the page</p>">{{$p.BodyHTML}}</textarea>
+  <label for="ms">Module settings <span class="hint">key=value, one per line (for example redirect_url=https://…, per_page=10)</span></label>
+  <textarea id="ms" name="module_settings" placeholder="key=value">{{$p.ModuleSettings}}</textarea>
+</div>
+</div>
+
+<div class="tab" id="tab-seo">
+<div class="split">
+<div class="card">
+  <label for="seo_title">SEO title <span class="hint">empty = page title; the site suffix "{{.D.TitleSuffix}}" is added</span></label>
+  <input id="seo_title" name="seo_title" value="{{$p.SEOTitle}}" placeholder="Title shown in Google">
+  <label for="meta_description">Meta description</label>
+  <textarea id="meta_description" name="meta_description" placeholder="One or two sentences, about 150 characters">{{$p.MetaDescription}}</textarea>
+  <label for="canonical">Canonical URL <span class="hint">empty = this page on the primary domain</span></label>
+  <input id="canonical" name="canonical" value="{{$p.Canonical}}" placeholder="https://…">
+  <div class="row">
+    <div><label for="ri">Robots</label><select id="ri" name="robots_index"><option>index</option><option {{if eq (index .D.Robots 0) "noindex"}}selected{{end}}>noindex</option></select></div>
+    <div><label for="rf">&nbsp;</label><select id="rf" name="robots_follow"><option>follow</option><option {{if eq (index .D.Robots 1) "nofollow"}}selected{{end}}>nofollow</option></select></div>
+  </div>
+  <h2>Open Graph</h2>
+  <label for="og_title">OG title</label><input id="og_title" name="og_title" value="{{$p.OGTitle}}" placeholder="empty = SEO title or page title">
+  <label for="og_description">OG description</label><textarea id="og_description" name="og_description" placeholder="empty = meta description">{{$p.OGDescription}}</textarea>
+  <label for="og_image">OG image <span class="hint">file name from Media, or a URL; empty = site default</span></label>
+  <input id="og_image" name="og_image" value="{{$p.OGImage}}" placeholder="abc123.jpg">
+  <h2>JSON-LD</h2>
+  <textarea id="json_ld" name="json_ld" placeholder='{"@context":"https://schema.org","@type":"Article", …}'>{{$p.JSONLD}}</textarea>
+  <h2>Sitemap</h2>
+  <label class="cb"><input type="checkbox" name="in_sitemap" value="1" {{if $p.InSitemap}}checked{{end}}> Include in sitemap.xml</label>
+  <div class="row">
+    <div><label for="sp">Priority</label><input id="sp" name="sitemap_priority" value="{{$p.SitemapPriority}}" placeholder="0.5"></div>
+    <div><label for="sc">Change frequency</label><select id="sc" name="sitemap_changefreq"><option value=""></option>
+      {{$cf := $p.SitemapChangefreq}}{{range $f := (list "always" "hourly" "daily" "weekly" "monthly" "yearly" "never")}}<option {{if eq $f $cf}}selected{{end}}>{{$f}}</option>{{end}}</select></div>
+  </div>
+  <h2>Alternate languages</h2>
+  <textarea name="alternates" placeholder="de=https://example.com/de/ueber-uns">{{$p.Alternates}}</textarea>
+  {{if .D.Sisters}}<div class="sister muted">Sister sites on this domain: {{range .D.Sisters}}<br><b>{{.Lang}}</b> {{.Name}}: <code>{{.URL}}</code>{{end}}</div>{{end}}
+</div>
+<div>
+  <div class="card"><div class="muted" style="margin-bottom:6px">Google result</div>
+    <div class="serp"><div class="u" id="pv-url"></div><div class="t" id="pv-title"></div><div class="d" id="pv-desc"></div></div></div>
+  <div class="card"><div class="muted" style="margin-bottom:6px">Share card</div>
+    <div class="share"><div class="im" id="pv-img"></div><div class="tx"><div class="tt" id="pv-ogt"></div><div class="dd" id="pv-ogd"></div></div></div></div>
+</div>
+</div>
+</div>
+
+<div class="actions">
+  <button class="btn main" type="submit">{{icon "save"}} Save</button>
+  <a class="btn tone-gray" href="{{.A}}/pages">Cancel</a>
+</div>
+</form>
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  document.querySelectorAll('.tabs button').forEach(function(b){b.onclick=function(){
+    document.querySelectorAll('.tabs button').forEach(function(x){x.classList.toggle('on',x===b)});
+    document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('on',t.id==='tab-'+b.dataset.tab)});
+  }});
+  var comp=$('comp'); if(comp){comp.onchange=function(){var t=$('body'),v=comp.value;if(!v)return;
+    var s=t.selectionStart||0;t.value=t.value.slice(0,s)+v+t.value.slice(t.selectionEnd||s);t.focus();comp.value='';}}
+  var slug=$('slug'),rb=$('redir-box');
+  if(rb){slug.oninput=function(){rb.style.display=slug.value.replace(/^\/+|\/+$/g,'')!==slug.dataset.old?'flex':'none'}}
+  var base={{.D.BaseURL}},suffix={{.D.TitleSuffix}},defImg={{.D.DefaultImage}};
+  function upd(){
+    var t=$('seo_title').value||$('title').value, d=$('meta_description').value;
+    var s=slug.value.replace(/^\/+|\/+$/g,''); var url=base.replace(/\/$/,'')+(s?'/'+s:'');
+    $('pv-url').textContent=url; $('pv-title').textContent=(t+suffix).slice(0,70); $('pv-desc').textContent=d.slice(0,160);
+    $('pv-ogt').textContent=$('og_title').value||t; $('pv-ogd').textContent=$('og_description').value||d;
+    var im=$('og_image').value; $('pv-img').style.backgroundImage=(im||defImg)?'url("'+(im&&!/^(https?:|\/)/.test(im)?{{.D.MediaBase}}+im:(im||defImg))+'")':'none';
+  }
+  ['title','slug','seo_title','meta_description','og_title','og_description','og_image'].forEach(function(id){$(id).addEventListener('input',upd)});
+  upd();
+})();
+</script>
+{{end}}

@@ -1,0 +1,27 @@
+{{define "main"}}
+{{$s := .D.S}}
+<h1>Settings</h1>
+<form method="post" action="{{.A}}/settings">
+<input type="hidden" name="_csrf" value="{{.CSRF}}">
+<div class="card">
+  {{range .D.Fields}}
+  <label for="f-{{.Key}}">{{.Label}} {{with .Help}}<span class="hint">{{.}}</span>{{end}}</label>
+  {{if eq .Type "textarea"}}<textarea id="f-{{.Key}}" name="s_{{.Key}}" placeholder="{{.Key}}">{{.Value}}</textarea>
+  {{else if eq .Type "image"}}<input id="f-{{.Key}}" name="s_{{.Key}}" value="{{.Value}}" placeholder="media file name or URL">
+  {{else if eq .Type "email"}}<input id="f-{{.Key}}" type="email" name="s_{{.Key}}" value="{{.Value}}" placeholder="name@example.com">
+  {{else if eq .Type "url"}}<input id="f-{{.Key}}" type="url" name="s_{{.Key}}" value="{{.Value}}" placeholder="https://…">
+  {{else}}<input id="f-{{.Key}}" name="s_{{.Key}}" value="{{.Value}}" placeholder="{{.Label}}">{{end}}
+  {{end}}
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Other keys</h2>
+  <p class="hint">Keys that the theme does not list. They are kept as they are.</p>
+  {{range .D.Extra}}<label for="x-{{.}}"><code>{{.}}</code></label><input id="x-{{.}}" name="s_{{.}}" value="{{index $s .}}">{{end}}
+  <div class="row">
+    <div><label for="nk">New key</label><input id="nk" name="new_key" placeholder="for example smtp_host"></div>
+    <div><label for="nv">Value</label><input id="nv" name="new_value" placeholder="value"></div>
+  </div>
+</div>
+<div class="actions"><button class="btn main" type="submit">{{icon "save"}} Save</button></div>
+</form>
+{{end}}

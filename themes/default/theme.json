@@ -1,0 +1,18 @@
+{
+  "name": "Default",
+  "menus": ["main", "footer"],
+  "settings": [
+    {"key": "tagline", "label": "Tagline", "type": "text"},
+    {"key": "logo", "label": "Logo", "type": "image", "help": "media file name"},
+    {"key": "phone", "label": "Phone", "type": "text"},
+    {"key": "email", "label": "Email", "type": "email"},
+    {"key": "address", "label": "Address", "type": "textarea"},
+    {"key": "footer_text", "label": "Footer text", "type": "text"}
+  ],
+  "strings": {"read_more": "Read more", "search": "Search", "send": "Send", "sent": "Thank you. Your message was sent.", "no_results": "Nothing found."},
+  "admin": ["pages", "menus", "seo", "settings", "media", "modules", "users"],
+  "components": {
+    "listbox": {"title": "text", "prefix": "text", "count": "number"},
+    "card": {"title": "text", "text": "text", "link": "text"}
+  }
+}

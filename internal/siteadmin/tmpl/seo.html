@@ -1,0 +1,56 @@
+{{define "main"}}
+{{$a := .A}}{{$csrf := .CSRF}}{{$s := .D.S}}
+<h1>SEO {{ilinkNew .D.SitemapURL "map" "Open sitemap.xml" "blue"}} {{ilinkNew .D.RobotsURL "file" "Open robots.txt" "blue"}}</h1>
+<form method="post" action="{{$a}}/seo">
+<input type="hidden" name="_csrf" value="{{$csrf}}">
+<div class="card">
+  <h2 style="margin-top:0">Site defaults</h2>
+  <div class="row">
+    <div><label for="suf">Title suffix</label><input id="suf" name="seo_title_suffix" value="{{index $s "seo_title_suffix"}}" placeholder=" – Acme"></div>
+    <div><label for="dog">Default Open Graph image <span class="hint">media file name or URL</span></label><input id="dog" name="default_og_image" value="{{index $s "default_og_image"}}" placeholder="share.jpg"></div>
+  </div>
+  <label for="md">Default meta description <span class="hint">used when a page has none</span></label>
+  <textarea id="md" name="meta_description" placeholder="Short text about the site">{{index $s "meta_description"}}</textarea>
+  <h2>Organization (JSON-LD on every page)</h2>
+  <div class="row">
+    <div><label for="on">Name</label><input id="on" name="org_name" value="{{index $s "org_name"}}" placeholder="empty = no Organization block"></div>
+    <div><label for="ol">Logo</label><input id="ol" name="org_logo" value="{{index $s "org_logo"}}" placeholder="logo.png or https://…"></div>
+    <div><label for="op">Phone</label><input id="op" name="org_phone" value="{{index $s "org_phone"}}" placeholder="+49 …"></div>
+  </div>
+  <label for="os">Social profile links <span class="hint">one URL per line</span></label>
+  <textarea id="os" name="org_social" placeholder="https://instagram.com/…">{{index $s "org_social"}}</textarea>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">robots.txt</h2>
+  {{if .D.Prefixed}}<p class="hint">This site has a path prefix. Crawlers only read robots.txt at the domain root; the root site lists this site's sitemap automatically.</p>{{end}}
+  <textarea name="robots_txt" placeholder="empty = default (shown below)">{{index $s "robots_txt"}}</textarea>
+  <div class="hint">Served now:</div><pre class="hint" style="white-space:pre-wrap">{{.D.RobotsNow}}</pre>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Custom HTML</h2>
+  <label for="hh">In &lt;head&gt; <span class="hint">analytics, verification tags (stored as is)</span></label>
+  <textarea id="hh" name="head_html" placeholder="<meta name=&quot;google-site-verification&quot; …>">{{index $s "head_html"}}</textarea>
+  <label for="be">Before &lt;/body&gt;</label>
+  <textarea id="be" name="body_end_html" placeholder="<script>…</script>">{{index $s "body_end_html"}}</textarea>
+</div>
+<div class="actions" style="margin-bottom:20px"><button class="btn main" type="submit">{{icon "save"}} Save</button></div>
+</form>
+
+<div class="card tbl">
+  <h2 style="margin-top:0">Redirects</h2>
+  <form method="post" action="{{$a}}/seo/redirects" class="row" style="align-items:end">
+    <input type="hidden" name="_csrf" value="{{$csrf}}">
+    <div><label for="rf">From path</label><input id="rf" name="from_path" placeholder="/old-page" required></div>
+    <div><label for="rt">To URL</label><input id="rt" name="to_url" placeholder="/new-page or https://…"></div>
+    <div><label for="rc">Code</label><select id="rc" name="code"><option>301</option><option>302</option><option value="410">410 (gone)</option></select></div>
+    <div style="padding-bottom:2px">{{ibtn "plus" "Add redirect" "green"}}</div>
+  </form>
+  <table style="margin-top:12px">
+    <tr><th>From</th><th>To</th><th>Code</th><th>Hits</th><th></th></tr>
+    {{range .D.Redirects}}
+    <tr><td><code>{{.FromPath}}</code></td><td><code>{{.ToURL}}</code></td><td>{{.Code}}</td><td>{{.Hits}}</td>
+      <td class="act"><form method="post" action="{{$a}}/seo/redirects/{{.ID}}/delete"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "trash" "Delete redirect" "red"}}</form></td></tr>
+    {{else}}<tr><td colspan="5" class="muted">No redirects.</td></tr>{{end}}
+  </table>
+</div>
+{{end}}

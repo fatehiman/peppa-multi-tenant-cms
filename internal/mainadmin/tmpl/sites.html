@@ -1,0 +1,26 @@
+{{define "main"}}
+{{$csrf := .CSRF}}
+<h1>Sites {{ilink "/sites/new" "plus" "Add site" "green"}}</h1>
+<div class="card tbl">
+<table>
+  <tr><th>Name</th><th>Primary host</th><th>Theme</th><th>Lang</th><th>Status</th><th>Updated</th><th></th></tr>
+  {{range .D.Sites}}
+  <tr>
+    <td><a href="/sites/{{.ID}}">{{.Name}}</a><div class="hint">{{.Key}}</div></td>
+    <td><code>{{.Primary}}</code>{{if ne .Primary .Hosts}}<div class="hint">{{.Hosts}}</div>{{end}}</td>
+    <td>{{.Theme}}</td>
+    <td>{{.Lang}}</td>
+    <td>{{if .Disabled}}<span class="badge tone-red">disabled</span>{{else}}<span class="badge tone-green">active</span>{{end}}</td>
+    <td class="muted">{{time .UpdatedAt}}</td>
+    <td class="act">
+      {{ilinkNew .URL "eye" "Open public site" "blue"}}
+      <form method="post" action="/sites/{{.ID}}/open" target="_blank"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "key" "Open site admin" "purple"}}</form>
+      {{ilink (print "/sites/" .ID) "pencil" "Edit site" "amber"}}
+    </td>
+  </tr>
+  {{else}}
+  <tr><td colspan="7" class="muted">No sites yet.</td></tr>
+  {{end}}
+</table>
+</div>
+{{end}}

@@ -1,0 +1,32 @@
+{{define "main"}}
+{{$a := .A}}{{$csrf := .CSRF}}
+<h1>Media</h1>
+<div class="card">
+  <form method="post" action="{{$a}}/media/upload" enctype="multipart/form-data" class="actions" style="margin:0">
+    <input type="hidden" name="_csrf" value="{{$csrf}}">
+    <input type="file" name="file" multiple required>
+    {{ibtn "upload" "Upload" "green"}}
+    <span class="hint">Images, PDF, office files. Images wider than {{.D.MaxWidth}} px are rejected.</span>
+  </form>
+</div>
+<div class="media-grid">
+{{range .D.Items}}
+  <div class="card">
+    {{if .IsImage}}<div class="th" style="background-image:url('{{.URL}}')"></div>{{else}}<div class="th">{{icon "file"}}</div>{{end}}
+    <div class="hint" style="word-break:break-all;margin-top:6px"><b>{{.FileName}}</b><br>{{.OrigName}} · {{bytes .Size}}{{if .Width}} · {{.Width}}×{{.Height}}{{end}}</div>
+    <form method="post" action="{{$a}}/media/{{.ID}}/alt" class="actions" style="margin-top:6px">
+      <input type="hidden" name="_csrf" value="{{$csrf}}">
+      <input name="alt" value="{{.Alt}}" placeholder="Alt text" style="flex:1;min-width:0">
+      {{ibtn "save" "Save alt text" "amber"}}
+    </form>
+    <div class="actions" style="margin-top:6px">
+      <button type="button" class="btn icon tone-blue" title="Copy URL" aria-label="Copy URL" data-url="{{.URL}}" onclick="navigator.clipboard.writeText(location.origin+this.dataset.url);this.classList.add('tone-green')">{{icon "copy"}}</button>
+      {{ilinkNew .URL "eye" "Open file" "blue"}}
+      <form method="post" action="{{$a}}/media/{{.ID}}/delete" onsubmit="return confirm('Delete this file?')"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "trash" "Delete file" "red"}}</form>
+    </div>
+  </div>
+{{else}}
+  <p class="muted">No files yet.</p>
+{{end}}
+</div>
+{{end}}

@@ -1,0 +1,28 @@
+{{define "main"}}
+<h1>Pages {{ilink (print .A "/pages/new") "plus" "Add page" "green"}}</h1>
+<div class="card tbl">
+<table>
+  <tr><th>Title</th><th>Route</th><th>Template</th><th>Module</th><th>Status</th><th>Updated</th><th></th></tr>
+  {{$a := .A}}{{$csrf := .CSRF}}
+  {{range .D.Pages}}
+  <tr>
+    <td><a href="{{$a}}/pages/{{.ID}}">{{.Title}}</a></td>
+    <td><code>{{.Path}}</code></td>
+    <td>{{or .Template "default"}}</td>
+    <td>{{.Module}}</td>
+    <td>{{if eq .Status "published"}}<span class="badge tone-green">published</span>{{else}}<span class="badge tone-gray">draft</span>{{end}}</td>
+    <td class="muted">{{time .UpdatedAt}}</td>
+    <td class="act">
+      {{ilinkNew .URL "eye" "View page" "blue"}}
+      {{ilink (print $a "/pages/" .ID) "pencil" "Edit page" "amber"}}
+      <form method="post" action="{{$a}}/pages/{{.ID}}/move"><input type="hidden" name="_csrf" value="{{$csrf}}"><input type="hidden" name="dir" value="up">{{ibtn "up" "Move up" "gray"}}</form>
+      <form method="post" action="{{$a}}/pages/{{.ID}}/move"><input type="hidden" name="_csrf" value="{{$csrf}}"><input type="hidden" name="dir" value="down">{{ibtn "down" "Move down" "gray"}}</form>
+      <form method="post" action="{{$a}}/pages/{{.ID}}/delete" onsubmit="return confirm('Delete page {{.Title}}?')"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "trash" "Delete page" "red"}}</form>
+    </td>
+  </tr>
+  {{else}}
+  <tr><td colspan="7" class="muted">No pages yet.</td></tr>
+  {{end}}
+</table>
+</div>
+{{end}}

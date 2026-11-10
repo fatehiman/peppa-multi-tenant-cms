@@ -1,0 +1,43 @@
+{{define "main"}}
+{{$a := .A}}{{$csrf := .CSRF}}{{$cur := .D.Cur}}{{$e := .D.Edit}}
+<h1>Menus</h1>
+<div class="tabs">{{range .D.Keys}}<a class="btn {{if eq . $cur}}tone-blue{{else}}tone-gray{{end}}" style="margin:0 4px 6px 0" href="{{$a}}/menus?m={{.}}">{{.}}</a>{{end}}</div>
+<div class="split">
+<div class="card tbl">
+<table>
+  <tr><th>Label</th><th>Link</th><th></th></tr>
+  {{range .D.Items}}
+    {{template "menurow" (rowdata $a $csrf $cur .)}}
+    {{range .Children}}{{template "menurow" (rowdata $a $csrf $cur .)}}{{end}}
+  {{else}}
+  <tr><td colspan="3" class="muted">This menu is empty.</td></tr>
+  {{end}}
+</table>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">{{if $e.ID}}Edit item{{else}}Add item{{end}}</h2>
+  <form method="post" action="{{$a}}/menus/items/save">
+    <input type="hidden" name="_csrf" value="{{$csrf}}"><input type="hidden" name="menu" value="{{$cur}}"><input type="hidden" name="id" value="{{$e.ID}}">
+    <label for="label">Label</label><input id="label" name="label" value="{{$e.Label}}" placeholder="empty = page title">
+    <label for="page_id">Page</label>
+    <select id="page_id" name="page_id"><option value="0">— or use the URL below —</option>{{range .D.Pages}}<option value="{{.ID}}" {{if eq .ID $e.PageID}}selected{{end}}>{{.Title}} (/{{.Slug}})</option>{{end}}</select>
+    <label for="url">URL <span class="hint">/path, #anchor or https://…</span></label><input id="url" name="url" value="{{$e.URL}}" placeholder="/contact or #features">
+    <label for="parent">Parent</label>
+    <select id="parent" name="parent_id"><option value="0">— top level —</option>{{range .D.Items}}{{if ne .ID $e.ID}}<option value="{{.ID}}" {{if eq .ID $e.ParentID}}selected{{end}}>{{.Label}}</option>{{end}}{{end}}</select>
+    <div class="actions"><button class="btn main" type="submit">{{icon "save"}} Save</button>{{if $e.ID}}<a class="btn tone-gray" href="{{$a}}/menus?m={{$cur}}">Cancel</a>{{end}}</div>
+  </form>
+</div>
+</div>
+{{end}}
+  {{define "menurow"}}
+  <tr class="{{if .It.ParentID}}child{{end}}">
+    <td>{{if .It.ParentID}}↳ {{end}}{{.It.Label}}</td>
+    <td>{{if .It.PageID}}<span class="muted">page</span> <code>/{{.It.PageSlug}}</code>{{else}}<code>{{.It.URL}}</code>{{end}}</td>
+    <td class="act">
+      {{ilink (print .A "/menus?m=" .Cur "&edit=" .It.ID) "pencil" "Edit item" "amber"}}
+      <form method="post" action="{{.A}}/menus/items/{{.It.ID}}/move"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="menu" value="{{.Cur}}"><input type="hidden" name="dir" value="up">{{ibtn "up" "Move up" "gray"}}</form>
+      <form method="post" action="{{.A}}/menus/items/{{.It.ID}}/move"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="menu" value="{{.Cur}}"><input type="hidden" name="dir" value="down">{{ibtn "down" "Move down" "gray"}}</form>
+      <form method="post" action="{{.A}}/menus/items/{{.It.ID}}/delete" onsubmit="return confirm('Delete this item?')"><input type="hidden" name="_csrf" value="{{.CSRF}}"><input type="hidden" name="menu" value="{{.Cur}}">{{ibtn "trash" "Delete item" "red"}}</form>
+    </td>
+  </tr>
+  {{end}}

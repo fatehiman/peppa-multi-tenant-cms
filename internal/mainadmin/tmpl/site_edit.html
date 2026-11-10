@@ -1,0 +1,58 @@
+{{define "main"}}
+{{$s := .D.S}}{{$csrf := .CSRF}}{{$secs := .D.Sections}}
+<h1>{{.Title}}
+  {{if not .D.IsNew}}
+  {{ilinkNew .D.URL "eye" "Open public site" "blue"}}
+  <form method="post" action="/sites/{{$s.ID}}/open" target="_blank" class="inline"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "key" "Open site admin" "purple"}}</form>
+  {{ilink (print "/sites/" $s.ID "/backup") "download" "Download backup (zip)" "blue"}}
+  <form method="post" action="/sites/{{$s.ID}}/status" class="inline"><input type="hidden" name="_csrf" value="{{$csrf}}">
+    {{if $s.Disabled}}<input type="hidden" name="status" value="active">{{ibtn "play" "Enable site" "green"}}
+    {{else}}<input type="hidden" name="status" value="disabled">{{ibtn "power" "Disable site (503 maintenance page)" "amber"}}{{end}}
+  </form>
+  {{if $s.Disabled}}<span class="badge tone-red">disabled</span>{{end}}
+  {{end}}
+</h1>
+<form method="post" action="/sites/save">
+<input type="hidden" name="_csrf" value="{{$csrf}}">
+<input type="hidden" name="id" value="{{$s.ID}}">
+<div class="card">
+  <div class="row">
+    <div><label for="name">Site name</label><input id="name" name="name" value="{{$s.Name}}" placeholder="Acme" required></div>
+    <div><label for="key">Site key <span class="hint">folder name: a-z, 0-9, -</span></label>
+      <input id="key" name="key" value="{{$s.Key}}" placeholder="acme" {{if not .D.IsNew}}disabled{{else}}required pattern="[a-z0-9][a-z0-9\-]*"{{end}}></div>
+  </div>
+  <label for="hosts">Hosts <span class="hint">one per line; the first is primary; <code>domain.com</code> or <code>domain.com/de</code>. Others (and www.) redirect to the primary.</span></label>
+  <textarea id="hosts" name="hosts" placeholder="acme.com&#10;www.acme.com" required>{{.D.HostsText}}</textarea>
+  <div class="row">
+    <div><label for="lang">Language code</label><input id="lang" name="lang" value="{{$s.Lang}}" placeholder="en, de, fa"></div>
+    <div><label for="theme">Theme</label>
+      <select id="theme" name="theme">{{range .D.Themes}}<option {{if eq . $s.Theme}}selected{{end}}>{{.}}</option>{{end}}</select></div>
+  </div>
+  <label class="cb"><input type="checkbox" name="admin_enabled" value="1" {{if $s.AdminEnabled}}checked{{end}}> Site admin panel enabled (at <code>/admin</code>). When off, only you can open it from here.</label>
+  <label>Admin sections <span class="hint">override of theme.json; none checked = use the theme's list. Pages and SEO are always on.</span></label>
+  <div class="actions" style="margin-top:0">{{range .D.All}}<label class="cb" style="margin:0"><input type="checkbox" name="sections" value="{{.}}" {{if has $secs .}}checked{{end}}> {{.}}</label>{{end}}</div>
+</div>
+{{if .D.IsNew}}
+<div class="card">
+  <h2 style="margin-top:0">First site admin</h2>
+  <div class="row">
+    <div><label for="ae">Email</label><input id="ae" type="email" name="admin_email" value="{{.D.Email}}" placeholder="client@example.com"></div>
+    <div><label for="ap">Password</label><input id="ap" type="password" name="admin_password" placeholder="at least 8 characters" autocomplete="new-password"></div>
+  </div>
+</div>
+{{end}}
+<div class="actions"><button class="btn main" type="submit">{{icon "save"}} Save</button><a class="btn tone-gray" href="/">Cancel</a></div>
+</form>
+
+{{if not .D.IsNew}}
+<div class="card" style="margin-top:24px">
+  <h2 style="margin-top:0">Delete site</h2>
+  <p class="hint">The folder is moved to <code>sites/.trash/</code>. Type the site key <code>{{$s.Key}}</code> to confirm.</p>
+  <form method="post" action="/sites/{{$s.ID}}/delete" class="actions">
+    <input type="hidden" name="_csrf" value="{{$csrf}}">
+    <input name="confirm" placeholder="{{$s.Key}}" style="max-width:240px" required>
+    <button class="btn tone-red" type="submit">{{icon "trash"}} Delete</button>
+  </form>
+</div>
+{{end}}
+{{end}}

@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="{{.Site.Lang}}" dir="{{.Site.Dir}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{seo}}
+<link rel="stylesheet" href="{{asset "css/style.css"}}">
+</head>
+<body>
+{{template "partials/header.html" .}}
+<main class="container">
+{{block "content" .}}{{end}}
+</main>
+{{template "partials/footer.html" .}}
+{{bodyEnd}}
+</body>
+</html>

@@ -1,0 +1,7 @@
+{{define "c/card"}}
+<div class="card{{if .Big}} big{{end}}">
+  {{with .Title}}<h3>{{.}}</h3>{{end}}
+  {{with .Text}}<p>{{.}}</p>{{end}}
+  {{with .Link}}<a href="{{.}}">{{t "read_more"}} →</a>{{end}}
+</div>
+{{end}}

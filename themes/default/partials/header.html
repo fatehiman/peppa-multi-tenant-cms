@@ -1,0 +1,14 @@
+<header class="site-header">
+  <div class="container bar">
+    <a class="logo" href="{{url "/"}}">{{with setting "logo"}}<img src="{{media .}}" alt="{{$.Site.Name}}">{{else}}{{or (setting "site_title") .Site.Name}}{{end}}</a>
+    <nav>
+      <ul>
+      {{range menu "main"}}
+        <li class="{{if .Active}}active{{end}}"><a href="{{.URL}}">{{.Label}}</a>
+          {{if .Children}}<ul>{{range .Children}}<li><a href="{{.URL}}">{{.Label}}</a></li>{{end}}</ul>{{end}}
+        </li>
+      {{end}}
+      </ul>
+    </nav>
+  </div>
+</header>

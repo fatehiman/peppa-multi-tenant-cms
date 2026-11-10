@@ -1,0 +1,14 @@
+{{define "content"}}
+<h1>{{.Page.Title}}</h1>
+{{.Page.Body}}
+{{if .Data.Sent}}<p class="ok">{{t "sent"}}</p>{{end}}
+{{with .Data.Error}}<p class="err">{{.}}</p>{{end}}
+<form method="post" class="form">
+  {{csrf}}
+  <input type="text" name="website" value="" class="hp" tabindex="-1" autocomplete="off">
+  <label>Name<input name="name" value="{{with .Data.Values}}{{.Name}}{{end}}"></label>
+  <label>Email<input type="email" name="email" value="{{with .Data.Values}}{{.Email}}{{end}}"></label>
+  <label>Message<textarea name="message" rows="6">{{with .Data.Values}}{{.Message}}{{end}}</textarea></label>
+  <button type="submit">{{t "send"}}</button>
+</form>
+{{end}}

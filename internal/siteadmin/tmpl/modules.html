@@ -1,0 +1,11 @@
+{{define "main"}}
+<h1>Modules</h1>
+<div class="card tbl">
+<table>
+  <tr><th>Module</th><th>Screen</th><th></th></tr>
+  {{range .D.Screens}}
+  <tr><td>{{.Module}}</td><td><a href="{{.URL}}">{{.Title}}</a></td><td class="act">{{ilink .URL "eye" "Open" "blue"}}</td></tr>
+  {{else}}<tr><td colspan="3" class="muted">No module screens.</td></tr>{{end}}
+</table>
+</div>
+{{end}}

@@ -1,0 +1,36 @@
+{{define "main"}}
+{{$a := .A}}{{$csrf := .CSRF}}
+<h1>Users</h1>
+<div class="card tbl">
+<table>
+  <tr><th>Email</th><th>Role</th><th>New password</th><th></th></tr>
+  {{range .D.Users}}
+  <tr>
+    <td>{{.Email}}</td>
+    <td colspan="2">
+      <form method="post" action="{{$a}}/users/save" id="u{{.ID}}" class="actions" style="margin:0">
+        <input type="hidden" name="_csrf" value="{{$csrf}}"><input type="hidden" name="id" value="{{.ID}}">
+        <select name="role" style="width:auto"><option value="editor">editor</option><option value="admin" {{if eq .Role "admin"}}selected{{end}}>admin</option></select>
+        <input type="password" name="password" placeholder="leave empty to keep" style="flex:1;min-width:140px" autocomplete="new-password">
+      </form>
+    </td>
+    <td class="act">
+      <button class="btn icon tone-amber" type="submit" form="u{{.ID}}" title="Save user" aria-label="Save user">{{icon "save"}}</button>
+      <form method="post" action="{{$a}}/users/{{.ID}}/delete" onsubmit="return confirm('Delete {{.Email}}?')"><input type="hidden" name="_csrf" value="{{$csrf}}">{{ibtn "trash" "Delete user" "red"}}</form>
+    </td>
+  </tr>
+  {{end}}
+</table>
+</div>
+<div class="card">
+  <h2 style="margin-top:0">Add user</h2>
+  <form method="post" action="{{$a}}/users/save" class="row" style="align-items:end">
+    <input type="hidden" name="_csrf" value="{{$csrf}}">
+    <div><label for="ne">Email</label><input id="ne" type="email" name="email" placeholder="editor@example.com" required></div>
+    <div><label for="np">Password</label><input id="np" type="password" name="password" placeholder="at least 8 characters" required autocomplete="new-password"></div>
+    <div><label for="nr">Role</label><select id="nr" name="role"><option value="editor">editor</option><option value="admin">admin</option></select></div>
+    <div style="padding-bottom:2px">{{ibtn "plus" "Add user" "green"}}</div>
+  </form>
+  <p class="hint">Editors can manage pages, menus, media and module screens. Admins can also change SEO, settings and users.</p>
+</div>
+{{end}}

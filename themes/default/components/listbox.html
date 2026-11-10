@@ -1,0 +1,12 @@
+{{define "c/listbox"}}
+<section class="listbox">
+  {{with .Title}}<h3>{{.}}</h3>{{end}}
+  <ul>
+  {{range pages (or .Prefix "") 5}}
+    <li><a href="{{.URL}}">{{.Title}}</a> <small>{{date .CreatedAt "2006-01-02"}}</small></li>
+  {{else}}
+    <li class="muted">—</li>
+  {{end}}
+  </ul>
+</section>
+{{end}}

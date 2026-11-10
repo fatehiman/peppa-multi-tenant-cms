@@ -1,0 +1,12 @@
+# /etc/systemd/system/hostkit-backup.service — started by hostkit-backup.timer
+[Unit]
+Description=hostkit nightly backup (VACUUM INTO + tar.gz per site, 14 days kept)
+
+[Service]
+Type=oneshot
+User=hostkit
+Group=hostkit
+ExecStart=/srv/hostkit/hostkit -root /srv/hostkit -backup-dir /srv/backups/hostkit backup
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/hostkit /srv/backups

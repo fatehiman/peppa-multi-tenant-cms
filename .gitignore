@@ -1,0 +1,17 @@
+# Claude Code local settings: may hold secrets, never commit or deploy
+.claude/settings.local.json
+
+# build output
+/hostkit
+/hostkit.exe
+*.exe
+/dist/
+
+# local data (dev runs)
+/devdata/
+/sites/
+main.db
+*.db
+*.db-wal
+*.db-shm
+secret.key

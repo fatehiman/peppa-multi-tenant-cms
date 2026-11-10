@@ -1,0 +1,8 @@
+{{define "content"}}
+<h1>{{.Page.Title}}</h1>
+<form method="get" class="search"><input name="q" value="{{.Data.Query}}" placeholder="{{t "search"}}"><button type="submit">{{t "search"}}</button></form>
+{{if .Data.Query}}
+  {{range .Data.Items}}<article class="item"><h2><a href="{{.URL}}">{{.Title}}</a></h2><p>{{excerpt .Body 160}}</p></article>
+  {{else}}<p>{{t "no_results"}}</p>{{end}}
+{{end}}
+{{end}}

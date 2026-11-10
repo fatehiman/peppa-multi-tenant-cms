@@ -1,0 +1,29 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>{{.Title}} · {{.Brand}}</title>
+<style>{{css}}</style>
+</head>
+<body>
+{{if .Nav}}
+<header class="top">
+  <div class="brand">{{.Brand}}</div>
+  <nav class="nav">
+    {{range .Nav}}<a href="{{.URL}}" class="{{if .Active}}on{{end}}" title="{{.Label}}">{{icon .Icon}}<span>{{.Label}}</span></a>{{end}}
+  </nav>
+  <div class="who">
+    {{if .ViewURL}}{{ilinkNew .ViewURL "external" "Open the public site" "blue"}}{{end}}
+    <form method="post" action="{{.LogoutURL}}" class="inline"><input type="hidden" name="_csrf" value="{{.CSRF}}">{{ibtn "logout" (print "Log out " .User) "gray"}}</form>
+  </div>
+</header>
+{{end}}
+<main class="wrap{{if not .Nav}} narrow{{end}}">
+  {{with .Flash}}<div class="flash ok">{{.}}</div>{{end}}
+  {{with .Error}}<div class="flash err">{{.}}</div>{{end}}
+  {{template "main" .}}
+</main>
+</body>
+</html>{{end}}
