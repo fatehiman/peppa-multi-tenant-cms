@@ -196,6 +196,16 @@ Changes from the plan, and why:
   binds its helpers to it. No parsing per request (only when more requests run at once than the pool holds).
 - **Media:** SVG uploads are not allowed (they can carry scripts). WebP width is not checked (no stdlib decoder).
 
+Added on 2026-11-10 (second round):
+
+- **Under construction mode per site** (site admin → SEO → Site status): visitors get HTTP 503 + `Retry-After` +
+  `noindex` and `robots.txt` `Disallow: /`; only people logged in to that site's admin see the site, with
+  `Cache-Control: private, no-store`. Optional theme file `under-construction.html`. jalasenegar.com is in this mode.
+- **www rule for all hosts:** `www.<host>` always 301s to `<host>`; `www.` hosts can not be added
+  (migration `main/0002_no_www_hosts.sql` removed the old ones).
+- **Subdomains** are separate hosts (tested: own site, session, robots.txt, sitemap; `www.sub` → `sub`).
+- **User names:** main admins and site users may log in with a user name (for example `mainadmin`), not only an email.
+
 Not done yet / to check on the real server:
 
 - The RAM and timing targets (20 sites × 50 pages) are not measured yet; one site runs now.

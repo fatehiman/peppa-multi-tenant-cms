@@ -57,6 +57,7 @@ type sources struct {
 	components map[string]string
 	pages      map[string]string
 	notFound   string
+	uc         string // under-construction.html (optional)
 }
 
 // tset is one parsed copy of all templates of a theme, bound to its own holder.
@@ -64,7 +65,11 @@ type tset struct {
 	h        *holder
 	pages    map[string]*template.Template
 	notFound *template.Template
+	uc       *template.Template
 }
+
+// HasUC reports whether the theme has its own under-construction.html.
+func (t *Theme) HasUC() bool { return t.src.uc != "" }
 
 // AssetURL returns the public URL of a theme asset with a cache-busting version.
 func (t *Theme) AssetURL(p string) string {
@@ -143,6 +148,9 @@ func LoadTheme(dir string) (*Theme, error) {
 	}
 	if b, err := os.ReadFile(filepath.Join(dir, "404.html")); err == nil {
 		t.src.notFound, t.Has404 = string(b), true
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "under-construction.html")); err == nil {
+		t.src.uc = string(b)
 	}
 	for n := range t.src.pages {
 		t.PageNames = append(t.PageNames, n)
@@ -236,6 +244,16 @@ func (t *Theme) build() (*tset, error) {
 		return nil, err
 	}
 	ts.notFound = c
+	if t.src.uc != "" {
+		c, err := base.Clone()
+		if err != nil {
+			return nil, err
+		}
+		if _, err := c.New("under-construction.html").Parse(t.src.uc); err != nil {
+			return nil, fmt.Errorf("under-construction.html: %w", err)
+		}
+		ts.uc = c
+	}
 	return ts, nil
 }
 

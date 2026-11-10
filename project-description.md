@@ -79,7 +79,7 @@ There is one `main.db` for the host registry and one `site.db` per website, so a
 | Table | Key columns | Purpose |
 | --- | --- | --- |
 | `sites` | id, key, name, theme, lang, status (active / disabled), admin_enabled, created_at | One row per website (one per language) |
-| `domains` | domain, path_prefix (PK is both; prefix is `''` or like `/de`), site_id, is_primary | Hosts that map to a site; a host is a domain plus an optional path prefix; aliases redirect to the primary |
+| `domains` | domain, path_prefix (PK is both; prefix is `''` or like `/de`), site_id, is_primary | Hosts that map to a site; a host is a domain (or a subdomain like `shop.domain.com`) plus an optional path prefix; aliases redirect to the primary; `www.` hosts are never stored |
 | `main_admins` | id, email, password_hash | Users of the main admin panel |
 | `sessions` | token_hash, user_ref, scope (main / site key), expires_at | Login sessions for both panel types |
 
@@ -127,7 +127,7 @@ A site can turn its admin panel off entirely (setting `admin_enabled = false`, c
 | --- | --- |
 | Pages (routes) | List, add, edit, delete, reorder. Edit form has two tabs. **Content:** title, slug (the route), template (dropdown from theme), module (dropdown), body (plain textarea, may be empty), status. **SEO:** SEO title, meta description, canonical URL, robots (index/noindex, follow/nofollow), Open Graph title / description / image, JSON-LD block, sitemap priority and change frequency, include in sitemap. A live preview shows how the Google result and the share card will look. |
 | Menus | Pick a menu (main, footer, or any key the theme declares), add items linking to a page or a URL, reorder with up/down buttons, one level of nesting. |
-| SEO | Site-wide SEO: title suffix, default Open Graph image, Organization JSON-LD fields, `robots.txt` text (editable, default allows all and points to the sitemap), redirects table (from path → to URL, 301 or 302, hit count), custom `<head>` HTML and end-of-body HTML (analytics, verification tags, the host's own scripts), and a link to the live `sitemap.xml`. |
+| SEO | Site status: **under construction** on/off plus a message (visitors get HTTP 503 and `noindex`, `robots.txt` disallows all; only people logged in to this site's admin see the site; a theme may provide `under-construction.html`). Site-wide SEO: title suffix, default Open Graph image, Organization JSON-LD fields, `robots.txt` text (editable, default allows all and points to the sitemap), redirects table (from path → to URL, 301 or 302, hit count), custom `<head>` HTML and end-of-body HTML (analytics, verification tags, the host's own scripts), and a link to the live `sitemap.xml`. |
 | Settings | A form generated from the theme's `theme.json` settings list (site title, logo, phone, social links). Unknown keys are kept, not lost. |
 | Media | Upload, list, delete, copy URL, edit alt text. Images over 2,000 px wide are rejected rather than resized, to keep CPU and code low. |
 | Modules | Only appears if the site has modules. Each module adds its own screen (for example, view contact-form submissions). |
@@ -300,7 +300,7 @@ Every host gets the same SEO features from the base structure. A theme only has 
 
 **Automatic, no setting needed:**
 
-- Alias domains and `www` redirect 301 to the primary domain. Trailing slash is removed with a 301 (except `/`). Slugs are lower-case; a request with upper-case letters redirects to the lower-case URL.
+- Alias domains redirect 301 to the primary domain. `www.<host>` always redirects 301 to `<host>` for every host (also `www.sub.domain.com` → `sub.domain.com`); this rule is fixed and a `www.` host can not be defined. A subdomain is a separate host, like another domain. Trailing slash is removed with a 301 (except `/`). Slugs are lower-case; a request with upper-case letters redirects to the lower-case URL.
 - Correct status codes: 404 for unknown pages, 503 with `Retry-After` for disabled sites, 410 is available in the redirects table (code 410, empty target) for removed pages.
 - `ETag` and `Last-Modified` on cached pages; `Cache-Control` on static assets (Nginx).
 - Changing a page's slug offers to add a 301 redirect from the old slug (checkbox, checked by default).

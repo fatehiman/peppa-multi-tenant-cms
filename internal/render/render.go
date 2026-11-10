@@ -120,6 +120,20 @@ func (t *Theme) Render404(w io.Writer, rc *RC) error {
 	return ts.notFound.ExecuteTemplate(w, "layout.html", rc.data(""))
 }
 
+// RenderUC renders the theme's under-construction.html (a full page, no layout).
+func (t *Theme) RenderUC(w io.Writer, rc *RC) error {
+	ts, err := t.get()
+	if err != nil {
+		return err
+	}
+	defer t.put(ts)
+	if ts.uc == nil {
+		return fmt.Errorf("theme %s has no under-construction.html", t.Name)
+	}
+	ts.h.rc = rc
+	return ts.uc.ExecuteTemplate(w, "under-construction.html", rc.data(""))
+}
+
 // ---------- helpers ----------
 
 // holder is the per-tset pointer the helper closures read; set before Execute.

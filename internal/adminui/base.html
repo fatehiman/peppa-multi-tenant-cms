@@ -10,7 +10,7 @@
 <body>
 {{if .Nav}}
 <header class="top">
-  <div class="brand">{{.Brand}}</div>
+  <div class="brand">{{.Brand}}{{with .Notice}} <span class="badge tone-amber" style="font-weight:400">{{.}}</span>{{end}}</div>
   <nav class="nav">
     {{range .Nav}}<a href="{{.URL}}" class="{{if .Active}}on{{end}}" title="{{.Label}}">{{icon .Icon}}<span>{{.Label}}</span></a>{{end}}
   </nav>

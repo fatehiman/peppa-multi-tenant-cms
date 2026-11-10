@@ -77,8 +77,25 @@ Updates later: `SSH_HOST=<server> bash deploy/deploy.sh` (tests, builds, uploads
 ## Daily use
 
 **Add a site** (main admin → Sites → plus button): name, key (folder name), hosts (one per line,
-first = primary; `domain.com` or `domain.com/de`), language, theme, first site admin.
-The site is live at once. Point its DNS to the server and add the TLS certificate.
+first = primary; `domain.com`, `sub.domain.com` or `domain.com/de`), language, theme, first site
+admin (a user name like `mainadmin` or an email). The site is live at once. Point its DNS to the
+server and add the TLS certificate.
+
+**Host rules (fixed for every host, site admins can not change them):**
+
+- `www.<host>` always answers **301** to `<host>` (same path and query). A `www.` host can not be
+  added. This works for subdomains too: `www.sub.domain.com` → `sub.domain.com`.
+- A subdomain (`shop.domain.com`) is a separate host, exactly like another domain: its own site,
+  database, theme, admin panel, session cookie, `robots.txt` and `sitemap.xml`.
+- Other hosts of a site (aliases) answer 301 to its primary host.
+
+**Under construction** (site admin → SEO → Site status, admins only): while it is on, visitors get
+an "under construction" page with HTTP **503** + `Retry-After` + `noindex`, and `robots.txt` says
+`Disallow: /`. People logged in to *this* site's admin (admins, editors, or the main admin through
+"open site admin") see the real site; their pages are sent with `Cache-Control: private, no-store`
+so a CDN never keeps them. The admin panel shows an "Under construction" badge. A theme can design
+the page with an optional `under-construction.html` (a full page, all helpers work); without it
+hostkit shows a simple page with the site title and the message from the same form.
 
 **Site admin:** `https://<domain>/admin` (or `https://domain.com/de/admin`). Sections:
 Pages (routes + SEO tab), Menus, SEO (title suffix, default image, Organization JSON-LD,
@@ -101,8 +118,8 @@ Flags come **before** the command.
 | Command | What it does |
 | --- | --- |
 | `hostkit [flags] serve` | Run the web server (default command) |
-| `hostkit [flags] admin create <email>` | Create a main admin; password from stdin |
-| `hostkit [flags] admin password <email>` | Set a new main admin password |
+| `hostkit [flags] admin create <user>` | Create a main admin (user name or email); password from stdin |
+| `hostkit [flags] admin password <user>` | Set a new main admin password |
 | `hostkit [flags] site create -key k -name n -hosts a.com,www.a.com [-theme t] [-lang l] [-admin-email e]` | Create a site (then `systemctl reload hostkit`) |
 | `hostkit [flags] site sql <key> <file.sql>` | Run a SQL file on one site database (seed content) |
 | `hostkit [flags] site list` | List sites and hosts |
@@ -127,6 +144,7 @@ themes/clean/
   pages/default.html  # used when a page picks no template
   pages/*.html        # more page templates (shown in the page form)
   404.html
+  under-construction.html  # optional: full page shown while the site is under construction
   assets/             # css, js, images, fonts (served by the web server at /_t/<theme>/)
 ```
 

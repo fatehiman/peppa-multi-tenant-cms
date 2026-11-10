@@ -2,8 +2,8 @@
 <div class="card">
   <h1>hostkit · Main admin</h1>
   <form method="post" action="/login">
-    <label for="email">Email</label>
-    <input id="email" type="email" name="email" value="{{.D.Email}}" placeholder="you@example.com" required autofocus>
+    <label for="email">User name or email</label>
+    <input id="email" type="text" name="email" value="{{.D.Email}}" placeholder="mainadmin or you@example.com" autocomplete="username" required autofocus>
     <label for="pw">Password</label>
     <input id="pw" type="password" name="password" placeholder="Your password" required>
     <div class="actions"><button class="btn main" type="submit">Log in</button></div>

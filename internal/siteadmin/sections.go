@@ -146,7 +146,7 @@ func (h *Handler) menuItemMove(q *req) {
 
 // ---------- SEO ----------
 
-var seoKeys = []string{"seo_title_suffix", "meta_description", "default_og_image", "org_name", "org_logo", "org_phone",
+var seoKeys = []string{"under_construction", "uc_message", "seo_title_suffix", "meta_description", "default_og_image", "org_name", "org_logo", "org_phone",
 	"org_social", "robots_txt", "head_html", "body_end_html"}
 
 func (h *Handler) seoForm(q *req) {
@@ -521,8 +521,8 @@ func (h *Handler) userSave(q *req) {
 	}
 	if id == 0 {
 		email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-		if !strings.Contains(email, "@") || hash == "" {
-			q.back("/users", "", "Give an email and a password (at least 8 characters).")
+		if email == "" || strings.ContainsAny(email, " 	") || hash == "" {
+			q.back("/users", "", "Give a user name (or email) without spaces and a password (at least 8 characters).")
 			return
 		}
 		if err := store.CreateUser(q.DB, email, hash, role); err != nil {

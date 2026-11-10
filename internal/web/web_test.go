@@ -102,7 +102,8 @@ func newEnv(t *testing.T) *env {
 			t.Fatal(err)
 		}
 	}
-	mk("a", "alpha", "en", "a.test\nwww.a.test\nalias-a.test")
+	mk("a", "alpha", "en", "a.test\nalias-a.test")
+	mk("sub", "beta", "en", "sub.a.test")
 	mk("ade", "alpha", "de", "a.test/de")
 	mk("b", "beta", "en", "b.test")
 	mk("conly", "alpha", "de", "c.test/de")
@@ -442,5 +443,91 @@ func TestMainAdminCreatesSiteLive(t *testing.T) {
 	}
 	if _, body, _ := e.get("new.test", "/robots.txt"); !strings.Contains(body, "Disallow: /") {
 		t.Error("disabled robots")
+	}
+}
+
+func TestUnderConstruction(t *testing.T) {
+	e := newEnv(t)
+	d := e.db("a")
+	store.SavePage(d, &store.Page{Slug: "about", Title: "About Real", Status: "published", InSitemap: true})
+	// visitor fills the page cache before UC is switched on
+	if _, body, _ := e.get("a.test", "/about"); !strings.Contains(body, "About Real") {
+		t.Fatal("page not served")
+	}
+	store.SetSettings(d, map[string]string{"under_construction": "1", "uc_message": "Coming soon!"})
+	e.app.Cache.Invalidate("a")
+	code, body, h := e.get("a.test", "/about")
+	if code != 503 || strings.Contains(body, "About Real") || !strings.Contains(body, "Coming soon!") || h.Get("Retry-After") == "" {
+		t.Errorf("visitor: %d %q", code, body)
+	}
+	if _, r, _ := e.get("a.test", "/robots.txt"); !strings.Contains(r, "Disallow: /") {
+		t.Errorf("robots under construction: %s", r)
+	}
+	if code, _, _ := e.get("a.test", "/sitemap.xml"); code != 503 {
+		t.Errorf("sitemap: %d", code)
+	}
+	// the admin of this site sees the real site, never stored by shared caches
+	c, _ := login(e, "a.test", "", "ed@a.test")
+	code, body, h = e.do(c, "GET", "a.test", "/about", nil)
+	if code != 200 || !strings.Contains(body, "About Real") || h.Get("Cache-Control") != "private, no-store" {
+		t.Errorf("admin: %d cache=%q", code, h.Get("Cache-Control"))
+	}
+	// after the admin's visit, a visitor still gets the UC page (no cache leak)
+	if code, body, _ := e.get("a.test", "/about"); code != 503 || strings.Contains(body, "About Real") {
+		t.Errorf("visitor after admin: %d", code)
+	}
+	// an admin of another site (same domain, /de) does not see it
+	cde, _ := login(e, "a.test", "/de", "ed@ade.test")
+	if code, _, _ := e.do(cde, "GET", "a.test", "/about", nil); code != 503 {
+		t.Errorf("admin of /de sees the root site: %d", code)
+	}
+	// other sites are not affected
+	if code, _, _ := e.get("a.test", "/de"); code != 200 {
+		t.Errorf("/de site: %d", code)
+	}
+	// the admin panel itself still works for visitors (login page)
+	if code, _, _ := e.get("a.test", "/admin/login"); code != 200 {
+		t.Errorf("admin login page: %d", code)
+	}
+	// switch off from the admin SEO form
+	_, page, _ := e.do(c, "GET", "a.test", "/admin/seo", nil)
+	if !strings.Contains(page, "Under construction") {
+		t.Error("no under construction notice in the admin")
+	}
+	csrf := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(page)[1]
+	e.do(c, "POST", "a.test", "/admin/seo", url.Values{"_csrf": {csrf}})
+	if code, _, _ := e.get("a.test", "/about"); code != 200 {
+		t.Errorf("after switch off: %d", code)
+	}
+}
+
+func TestSubdomainAndWWW(t *testing.T) {
+	e := newEnv(t)
+	store.SavePage(e.db("sub"), &store.Page{Slug: "x", Title: "Sub X", Status: "published", InSitemap: true})
+	if code, body, _ := e.get("sub.a.test", "/x"); code != 200 || !strings.Contains(body, "Sub X") {
+		t.Errorf("subdomain page: %d", code)
+	}
+	if code, _, _ := e.get("a.test", "/x"); code != 404 {
+		t.Errorf("subdomain page visible on the parent domain: %d", code)
+	}
+	// www of the subdomain goes to the subdomain, www of the domain to the domain
+	if code, _, h := e.get("www.sub.a.test", "/x?y=1"); code != 301 || h.Get("Location") != "https://sub.a.test/x?y=1" {
+		t.Errorf("www.sub: %d %s", code, h.Get("Location"))
+	}
+	if code, _, h := e.get("www.a.test", "/"); code != 301 || h.Get("Location") != "https://a.test/" {
+		t.Errorf("www: %d %s", code, h.Get("Location"))
+	}
+	// own robots.txt and sitemap: no lines of the parent domain's sites
+	if _, r, _ := e.get("sub.a.test", "/robots.txt"); !strings.Contains(r, "https://sub.a.test/sitemap.xml") || strings.Contains(r, "https://a.test/") {
+		t.Errorf("sub robots: %s", r)
+	}
+	// session of the parent domain is not valid on the subdomain
+	c, _ := login(e, "a.test", "", "ed@a.test")
+	if code, _, _ := e.do(c, "GET", "sub.a.test", "/admin/pages", nil); code != 303 {
+		t.Errorf("parent session accepted on subdomain: %d", code)
+	}
+	// a www host can not be added
+	if _, err := tenant.ParseHosts("www.new.test"); err == nil {
+		t.Error("www host accepted")
 	}
 }

@@ -3,14 +3,14 @@ package tenant
 import "testing"
 
 func TestParseHosts(t *testing.T) {
-	h, err := ParseHosts("Example.com\nhttps://www.example.com/\nexample.com/de\n\nexample.com")
+	h, err := ParseHosts("Example.com\nhttps://shop.example.com/\nexample.com/de\n\nexample.com")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(h) != 3 || h[0].String() != "example.com" || !h[0].Primary || h[2].Prefix != "/de" || h[1].Primary {
 		t.Errorf("hosts: %+v", h)
 	}
-	for _, bad := range []string{"exa mple.com", "example.com/DE?", "example.com/admin", "example.com/_m", "-x.com"} {
+	for _, bad := range []string{"exa mple.com", "example.com/DE?", "example.com/admin", "example.com/_m", "-x.com", "www.example.com", "https://WWW.example.com/de"} {
 		if _, err := ParseHosts(bad); err == nil {
 			t.Errorf("%q accepted", bad)
 		}

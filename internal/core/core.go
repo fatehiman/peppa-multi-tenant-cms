@@ -83,5 +83,9 @@ func (a *App) Sections(s *tenant.Site) []string {
 	return out
 }
 
+// UnderConstruction reports whether a site is switched to "under construction"
+// (site setting under_construction = 1): only its logged-in admins see it.
+func UnderConstruction(settings map[string]string) bool { return settings["under_construction"] == "1" }
+
 // AllSections are the site admin sections in menu order.
 var AllSections = []string{"pages", "menus", "seo", "settings", "media", "modules", "users"}

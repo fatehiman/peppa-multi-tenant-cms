@@ -3,8 +3,10 @@ package web
 
 import (
 	"bytes"
+	"database/sql"
 	"errors"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -157,10 +159,21 @@ func (rt *Router) public(w http.ResponseWriter, r *http.Request, fullPath string
 	sr := core.Site(r)
 	s, d, path := sr.Site, sr.DB, sr.Path
 	get := r.Method == http.MethodGet || r.Method == http.MethodHead
+	settings := core.Settings(d)
+
+	// Under construction: only people logged in to this site's admin see the site.
+	if core.UnderConstruction(settings) {
+		if app.Auth.Get(r, s.Key) == nil {
+			rt.underConstruction(w, r, s, d, settings)
+			return
+		}
+		// a logged-in viewer: the CDN and shared caches must never keep this response
+		w = privateWriter{w}
+	}
 
 	switch path {
 	case "/robots.txt":
-		writeText(w, "text/plain; charset=utf-8", seo.Robots(app.Cfg.Scheme, s, core.Settings(d), app.Reg.SisterSites(s.Domain)))
+		writeText(w, "text/plain; charset=utf-8", seo.Robots(app.Cfg.Scheme, s, settings, app.Reg.SisterSites(s.Domain)))
 		return
 	case "/sitemap.xml":
 		if e := app.Cache.Get(s.Key, "/sitemap.xml"); e != nil {
@@ -173,7 +186,7 @@ func (rt *Router) public(w http.ResponseWriter, r *http.Request, fullPath string
 			return
 		}
 		urls := seo.PageURLs(pages)
-		mctx := &module.Ctx{Site: s, DB: d, Settings: core.Settings(d)}
+		mctx := &module.Ctx{Site: s, DB: d, Settings: settings}
 		for _, m := range module.ForSite(s.Key) {
 			if sm, ok := m.(module.Sitemapper); ok {
 				mctx.Store = module.Store{DB: d, Module: m.Name()}
@@ -241,7 +254,6 @@ func (rt *Router) public(w http.ResponseWriter, r *http.Request, fullPath string
 		rt.fail(w, fmt.Errorf("theme %q is not loaded", s.Theme))
 		return
 	}
-	settings := core.Settings(d)
 	rc := &render.RC{Site: s, DB: d, Theme: theme, Settings: settings, Scheme: app.Cfg.Scheme, Path: path,
 		Query: r.URL.Query(), CSRF: func() string { return app.Auth.PublicCSRF(s.Key) }}
 
@@ -366,5 +378,69 @@ func writeEntry(w http.ResponseWriter, r *http.Request, e *render.Entry) {
 	w.WriteHeader(e.Status)
 	if r.Method != http.MethodHead {
 		_, _ = w.Write(e.Body)
+	}
+}
+
+// privateWriter forces "Cache-Control: private, no-store" (pages shown to a logged-in
+// admin while the site is under construction).
+type privateWriter struct{ http.ResponseWriter }
+
+func (p privateWriter) WriteHeader(code int) {
+	p.Header().Set("Cache-Control", "private, no-store")
+	p.ResponseWriter.WriteHeader(code)
+}
+
+func (p privateWriter) Write(b []byte) (int, error) {
+	p.Header().Set("Cache-Control", "private, no-store")
+	return p.ResponseWriter.Write(b)
+}
+
+var ucPage = template.Must(template.New("uc").Parse(`<!doctype html>
+<html lang="{{.Lang}}" dir="{{.Dir}}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>{{.Name}}</title>
+<style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f5f6f9;color:#2b3140;
+font:17px/1.7 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;text-align:center;padding:16px}
+.box{max-width:560px}h1{font-size:30px;margin:0 0 10px}p{color:#6b7385;margin:0}</style></head>
+<body><div class="box"><h1>{{.Name}}</h1><p>{{.Message}}</p></div></body></html>`))
+
+// underConstruction answers a visitor of a site that is not public yet: 503 + Retry-After
+// (search engines come back later and do not index the page), robots.txt disallows all.
+func (rt *Router) underConstruction(w http.ResponseWriter, r *http.Request, s *tenant.Site, d *sql.DB, settings map[string]string) {
+	h := w.Header()
+	h.Set("Cache-Control", "no-store")
+	if core.Site(r).Path == "/robots.txt" {
+		writeText(w, "text/plain; charset=utf-8", "User-agent: *\nDisallow: /\n")
+		return
+	}
+	h.Set("Retry-After", "86400")
+	h.Set("X-Robots-Tag", "noindex, nofollow")
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	var buf bytes.Buffer
+	if theme := rt.App.Theme(s); theme != nil && theme.HasUC() {
+		rc := &render.RC{Site: s, DB: d, Theme: theme, Settings: settings, Scheme: rt.App.Cfg.Scheme, Path: core.Site(r).Path,
+			Query: r.URL.Query(), Title: s.Name}
+		if err := theme.RenderUC(&buf, rc); err != nil {
+			slog.Error("render under-construction", "site", s.Key, "err", err)
+			buf.Reset()
+		}
+	}
+	if buf.Len() == 0 {
+		msg := settings["uc_message"]
+		if msg == "" {
+			msg = "This website is under construction. Please come back soon."
+			if render.Dir(s.Lang) == "rtl" {
+				msg = "این وب‌سایت در حال ساخت است. به زودی برمی‌گردیم."
+			}
+		}
+		name := settings["site_title"]
+		if name == "" {
+			name = s.Name
+		}
+		_ = ucPage.Execute(&buf, map[string]string{"Lang": s.Lang, "Dir": render.Dir(s.Lang), "Name": name, "Message": msg})
+	}
+	w.WriteHeader(http.StatusServiceUnavailable)
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(buf.Bytes())
 	}
 }

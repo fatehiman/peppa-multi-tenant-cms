@@ -4,6 +4,12 @@
 <form method="post" action="{{$a}}/seo">
 <input type="hidden" name="_csrf" value="{{$csrf}}">
 <div class="card">
+  <h2 style="margin-top:0">Site status</h2>
+  <label class="cb"><input type="checkbox" name="under_construction" value="1" {{if eq (index $s "under_construction") "1"}}checked{{end}}> Under construction — visitors see only an "under construction" page (HTTP 503, not indexed). People logged in to this admin see the real site.</label>
+  <label for="ucm">Message for visitors <span class="hint">empty = a default text</span></label>
+  <textarea id="ucm" name="uc_message" placeholder="This website is under construction. Please come back soon.">{{index $s "uc_message"}}</textarea>
+</div>
+<div class="card">
   <h2 style="margin-top:0">Site defaults</h2>
   <div class="row">
     <div><label for="suf">Title suffix</label><input id="suf" name="seo_title_suffix" value="{{index $s "seo_title_suffix"}}" placeholder=" – Acme"></div>

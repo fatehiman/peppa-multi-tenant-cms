@@ -169,6 +169,9 @@ func (q *req) render(h *Handler, screen, title, active string, data any) {
 		ViewURL: q.Site.BasePath + "/", LogoutURL: q.A + "/logout"}
 	if q.U != nil {
 		p.User, p.CSRF = q.U.Email, q.U.Sess.CSRF
+		if core.UnderConstruction(settingsOf(q)) {
+			p.Notice = "Under construction"
+		}
 		for _, sec := range q.Sections {
 			if sec == "modules" && len(moduleScreens(q.Site.Key)) == 0 {
 				continue

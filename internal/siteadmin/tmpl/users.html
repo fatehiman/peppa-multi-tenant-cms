@@ -3,7 +3,7 @@
 <h1>Users</h1>
 <div class="card tbl">
 <table>
-  <tr><th>Email</th><th>Role</th><th>New password</th><th></th></tr>
+  <tr><th>User</th><th>Role</th><th>New password</th><th></th></tr>
   {{range .D.Users}}
   <tr>
     <td>{{.Email}}</td>
@@ -26,7 +26,7 @@
   <h2 style="margin-top:0">Add user</h2>
   <form method="post" action="{{$a}}/users/save" class="row" style="align-items:end">
     <input type="hidden" name="_csrf" value="{{$csrf}}">
-    <div><label for="ne">Email</label><input id="ne" type="email" name="email" placeholder="editor@example.com" required></div>
+    <div><label for="ne">User name or email</label><input id="ne" type="text" name="email" placeholder="editor or editor@example.com" autocomplete="off" required></div>
     <div><label for="np">Password</label><input id="np" type="password" name="password" placeholder="at least 8 characters" required autocomplete="new-password"></div>
     <div><label for="nr">Role</label><select id="nr" name="role"><option value="editor">editor</option><option value="admin">admin</option></select></div>
     <div style="padding-bottom:2px">{{ibtn "plus" "Add user" "green"}}</div>

@@ -125,6 +125,7 @@ type NavItem struct {
 // Page is the data of every admin screen; D holds the screen's own data.
 type Page struct {
 	Title, Brand, ViewURL, LogoutURL, CSRF, User, Flash, Error string
+	Notice                                                     string // small badge next to the brand
 	A                                                          string // base URL of the admin ("/admin", "/de/admin" or "" for the main admin)
 	Nav                                                        []NavItem
 	D                                                          any

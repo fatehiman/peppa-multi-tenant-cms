@@ -377,6 +377,9 @@ func ParseHosts(text string) ([]Host, error) {
 		if !domainRe.MatchString(domain) {
 			return nil, fmt.Errorf("bad domain %q", domain)
 		}
+		if strings.HasPrefix(domain, "www.") {
+			return nil, fmt.Errorf("%q: do not add www. hosts — www.<domain> always redirects (301) to <domain>", line)
+		}
 		if prefix != "" {
 			for _, seg := range strings.Split(prefix, "/") {
 				if !segRe.MatchString(seg) {
