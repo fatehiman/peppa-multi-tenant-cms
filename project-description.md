@@ -38,7 +38,7 @@ flowchart TD
     subgraph H["hostkit: one Go binary, one process"]
         R["Host router<br/>reads the Host header, finds the site in the<br/>in-memory domain map, opens its site.db on first use"]
         MA["Main admin<br/>panel host only<br/>create, edit, disable sites"]
-        SA["Site admin<br/>[any domain]/admin<br/>pages, menus, settings, media"]
+        SA["Site admin<br/>[any domain]/mainadmin<br/>pages, menus, settings, media"]
         P["Public pages<br/>page by slug, plus its module<br/>HTML cached in memory (8 MB)"]
         R --> MA
         R --> SA
@@ -115,7 +115,7 @@ The main admin panel lives on one dedicated host name (for example `panel.yourse
 
 ## Site admin panel
 
-Every site gets the same admin panel at `https://<its-domain>/admin`. Its HTML templates are embedded in the binary and shared by all sites, so one fix reaches every site. A theme never changes the admin panel's look.
+Every site gets the same admin panel at `https://<its-domain>/mainadmin`. Its HTML templates are embedded in the binary and shared by all sites, so one fix reaches every site. A theme never changes the admin panel's look.
 
 A site can turn its admin panel off entirely (setting `admin_enabled = false`, changeable only from the main admin). Sites with no admin are then edited by the main admin through an "open site admin" link.
 
@@ -137,7 +137,7 @@ Editors can manage pages, menus and media; only admins can change SEO site setti
 
 ## Languages: one site per language
 
-hostkit has no multilingual features inside a site. Instead, each language of a website is its own site. `domain.com` is one site and `domain.com/de` is another, with its own `site.db`, its own theme (or the same one), its own pages, menus, settings, media and its own admin panel at `domain.com/de/admin`. To the software they are as separate as two different domains. This removes all translation logic from the core; the only thing hostkit needs is to treat a **domain plus a path prefix as a host**.
+hostkit has no multilingual features inside a site. Instead, each language of a website is its own site. `domain.com` is one site and `domain.com/de` is another, with its own `site.db`, its own theme (or the same one), its own pages, menus, settings, media and its own admin panel at `domain.com/de/mainadmin`. To the software they are as separate as two different domains. This removes all translation logic from the core; the only thing hostkit needs is to treat a **domain plus a path prefix as a host**.
 
 **How a prefixed host works:**
 
@@ -275,7 +275,7 @@ Modules register themselves in `init()` with `module.Register(contact.New())`. T
 
 **Site-specific modules.** When one site needs something unusual (a booking form, a price calculator), write it as a module in `modules/<name>/` and restrict it to that site key. If a module needs its own tables, it ships its own migration files, which run only on the sites that use it.
 
-**Routing order** for a request on a site: `/admin/*` → static assets (Nginx handles these first) → module routes that claim a URL prefix (for example `/api/booking/`) → page by slug → `404.html`.
+**Routing order** for a request on a site: `/_captcha` → `/mainadmin/*` → static assets (Nginx handles these first) → module routes that claim a URL prefix (for example `/api/booking/`) → page by slug → `404.html`.
 
 ## SEO (built into the core, on every host)
 
@@ -339,7 +339,7 @@ Every host gets the same SEO features from the base structure. A theme only has 
 | `modernc.org/sqlite` | Pure-Go SQLite driver: no C compiler needed, the binary is fully static |
 | `golang.org/x/crypto` | bcrypt (and `acme/autocert` if Go terminates TLS itself) |
 
-No web framework, router library or ORM. Go 1.22+ `http.ServeMux` already supports methods and path patterns (`GET /admin/pages/{id}`).
+No web framework, router library or ORM. Go 1.22+ `http.ServeMux` already supports methods and path patterns (`GET /mainadmin/pages/{id}`).
 
 **Source layout:**
 

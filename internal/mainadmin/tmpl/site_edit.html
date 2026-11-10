@@ -28,7 +28,7 @@
     <div><label for="theme">Theme</label>
       <select id="theme" name="theme">{{range .D.Themes}}<option {{if eq . $s.Theme}}selected{{end}}>{{.}}</option>{{end}}</select></div>
   </div>
-  <label class="cb"><input type="checkbox" name="admin_enabled" value="1" {{if $s.AdminEnabled}}checked{{end}}> Site admin panel enabled (at <code>/admin</code>). When off, only you can open it from here.</label>
+  <label class="cb"><input type="checkbox" name="admin_enabled" value="1" {{if $s.AdminEnabled}}checked{{end}}> Site admin panel enabled (at <code>/mainadmin</code>). When off, only you can open it from here.</label>
   <label>Admin sections <span class="hint">override of theme.json; none checked = use the theme's list. Pages and SEO are always on.</span></label>
   <div class="actions" style="margin-top:0">{{range .D.All}}<label class="cb" style="margin:0"><input type="checkbox" name="sections" value="{{.}}" {{if has $secs .}}checked{{end}}> {{.}}</label>{{end}}</div>
 </div>

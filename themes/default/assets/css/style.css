@@ -30,3 +30,4 @@ button{background:#2f5bd3;color:#fff;border:0;border-radius:6px;padding:9px 18px
 .err{background:#fbe9e9;padding:10px;border-radius:6px}
 .pager{display:flex;gap:12px;margin-top:20px}
 .muted{color:#9ca3af}
+.captcha{margin:10px 0}.captcha .hk-captcha-img{border:1px solid #d1d5db;border-radius:6px;margin-bottom:6px}

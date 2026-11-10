@@ -1,9 +1,13 @@
-// Package contact is a contact form: honeypot, CSRF token, per-IP rate limit,
-// saves submissions in module_data and optionally sends them by SMTP.
+// Package contact is a contact form: honeypot, CSRF token, CAPTCHA, per-IP rate limit,
+// saves submissions in module_data, sends a Telegram message to the monitoring group
+// and optionally an email by SMTP.
 //
 // Form fields: name, email, phone, subject, message; hidden: _csrf ({{csrf}}),
-// website (honeypot, must stay empty), _return (optional site path to go back to).
+// website (honeypot, must stay empty), _return (optional site path to go back to);
+// CAPTCHA: {{captcha}} (fields captcha_id + captcha). Every form that posts to the
+// contact page needs {{captcha}}, unless the site setting contact_captcha = 0.
 // Site settings for mail: smtp_host (host:port), smtp_user, smtp_pass, smtp_from, contact_to.
+// Site setting contact_telegram = 0 turns the Telegram message off for one site.
 package contact
 
 import (
@@ -16,13 +20,17 @@ import (
 	"net"
 	"net/http"
 	"net/smtp"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"hostkit/internal/auth"
 	"hostkit/internal/module"
+	"hostkit/internal/notify"
+	"hostkit/internal/tenant"
 )
 
 func init() { module.Register(New()) }
@@ -55,6 +63,31 @@ func clip(s string, n int) string {
 	return s
 }
 
+// SafeReturn reports whether v is a safe local path to send the visitor back to.
+// It blocks "//evil.com", "/\evil.com" and control characters such as a tab:
+// browsers delete tabs and new lines from a URL, so "/<TAB>/evil.com" would become
+// "//evil.com" (an open redirect to another site).
+func SafeReturn(v string) bool {
+	if !strings.HasPrefix(v, "/") || strings.HasPrefix(v, "//") || len(v) > 500 {
+		return false
+	}
+	for _, c := range v {
+		if c < 0x20 || c == 0x7f || c == '\\' || unicode.IsSpace(c) {
+			return false
+		}
+	}
+	u, err := url.Parse(v)
+	return err == nil && u.Scheme == "" && u.Host == "" && !strings.HasPrefix(u.Path, "//")
+}
+
+// msg picks the Persian text on Persian sites.
+func msg(ctx *module.Ctx, en, fa string) string {
+	if strings.HasPrefix(strings.ToLower(ctx.Site.Lang), "fa") {
+		return fa
+	}
+	return en
+}
+
 // Handle implements module.Module.
 func (c *Contact) Handle(ctx *module.Ctx) (any, bool, error) {
 	r := ctx.R
@@ -63,7 +96,7 @@ func (c *Contact) Handle(ctx *module.Ctx) (any, bool, error) {
 		return data, false, nil
 	}
 	ret := ctx.URL("/" + ctx.Page.Slug)
-	if v := r.FormValue("_return"); strings.HasPrefix(v, "/") && !strings.HasPrefix(v, "//") && !strings.Contains(v, "\\") {
+	if v := r.FormValue("_return"); SafeReturn(v) {
 		ret = ctx.URL(v)
 	}
 	done := func() (any, bool, error) {
@@ -86,16 +119,20 @@ func (c *Contact) Handle(ctx *module.Ctx) (any, bool, error) {
 		return done()
 	}
 	if !ctx.CSRFValid() {
-		data["Error"] = "The form has expired. Please send it again."
+		data["Error"] = msg(ctx, "The form has expired. Please send it again.", "فرم منقضی شده است. لطفاً دوباره ارسال کنید.")
+		return data, false, nil
+	}
+	if sub.Message == "" || (sub.Email == "" && sub.Phone == "") {
+		data["Error"] = msg(ctx, "Please write a message and an email or phone number.", "لطفاً پیام و ایمیل یا شماره تلفن خود را بنویسید.")
+		return data, false, nil
+	}
+	if ctx.Settings["contact_captcha"] != "0" && (ctx.CaptchaValid == nil || !ctx.CaptchaValid()) {
+		data["Error"] = msg(ctx, "The numbers of the picture are not correct. Please type the new numbers.", "اعداد تصویر درست وارد نشده است. لطفاً اعداد تصویر جدید را وارد کنید.")
 		return data, false, nil
 	}
 	key := ctx.Site.Key + "|" + ctx.ClientIP
 	if !c.limit.Allow(key) {
-		data["Error"] = "Too many messages. Please try again later."
-		return data, false, nil
-	}
-	if sub.Message == "" || (sub.Email == "" && sub.Phone == "") {
-		data["Error"] = "Please write a message and an email or phone number."
+		data["Error"] = msg(ctx, "Too many messages. Please try again later.", "تعداد پیام‌ها زیاد است. لطفاً بعداً تلاش کنید.")
 		return data, false, nil
 	}
 	c.limit.Add(key)
@@ -103,6 +140,13 @@ func (c *Contact) Handle(ctx *module.Ctx) (any, bool, error) {
 		return nil, false, err
 	}
 	sendMail(ctx.Settings, ctx.Site.Name, sub)
+	if ctx.Notify != nil && ctx.Settings["contact_telegram"] != "0" {
+		body := []string{notify.Field("Site", ctx.Site.Domain+ctx.Site.BasePath), notify.Field("Name", sub.Name),
+			notify.Field("Email", sub.Email), notify.Field("Phone", sub.Phone), notify.Field("Subject", sub.Subject),
+			notify.Field("Page", sub.Page), notify.Field("IP", sub.IP), "<b>Message:</b>", notify.Esc(clip(sub.Message, 2500)),
+			notify.Esc("https://" + ctx.Site.Domain + ctx.Site.BasePath + tenant.AdminPath + "/modules/contact/submissions")}
+		ctx.Notify("New contact message", body...)
+	}
 	return done()
 }
 

@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"hostkit/internal/captcha"
 	"hostkit/internal/seo"
 	"hostkit/internal/store"
 	"hostkit/internal/tenant"
@@ -162,6 +163,7 @@ func (h *holder) funcMap() template.FuncMap {
 		"excerpt":  Excerpt,
 		"t":        h.t,
 		"csrf":     h.csrf,
+		"captcha":  h.captcha,
 		"dict":     dict,
 		"seo":      h.seo,
 		"bodyEnd":  func() template.HTML { return seo.BodyEnd(h.rc.Settings) },
@@ -292,6 +294,35 @@ func (h *holder) csrf() template.HTML {
 		return ""
 	}
 	return template.HTML(`<input type="hidden" name="_csrf" value="` + template.HTMLEscapeString(h.rc.CSRF()) + `">`)
+}
+
+// captcha is the CAPTCHA widget for public forms: {{captcha}} or {{captcha "form-control"}}
+// (extra CSS class for the text input). Texts: strings "captcha" (placeholder) and
+// "captcha_title" (tooltip) in theme.json or t_ settings; defaults by site language.
+func (h *holder) captcha(inputClass ...string) template.HTML {
+	ph, title := captcha.Texts(h.rc.Site.Lang)
+	if v := h.str("captcha"); v != "" {
+		ph = v
+	}
+	if v := h.str("captcha_title"); v != "" {
+		title = v
+	}
+	cls := ""
+	if len(inputClass) > 0 {
+		cls = inputClass[0]
+	}
+	return captcha.Widget(h.rc.Site.BasePath+"/_captcha", cls, ph, title)
+}
+
+// str returns a theme string or its t_ setting override, or "".
+func (h *holder) str(key string) string {
+	if v := h.rc.Settings["t_"+key]; v != "" {
+		return v
+	}
+	if h.rc.Theme != nil {
+		return h.rc.Theme.Meta.Strings[key]
+	}
+	return ""
 }
 
 func (h *holder) seo() template.HTML {

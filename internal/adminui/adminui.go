@@ -126,7 +126,7 @@ type NavItem struct {
 type Page struct {
 	Title, Brand, ViewURL, LogoutURL, CSRF, User, Flash, Error string
 	Notice                                                     string // small badge next to the brand
-	A                                                          string // base URL of the admin ("/admin", "/de/admin" or "" for the main admin)
+	A                                                          string // base URL of the admin ("/mainadmin", "/de/mainadmin" or "" for the main admin)
 	Nav                                                        []NavItem
 	D                                                          any
 }

@@ -13,6 +13,7 @@ file. One small main admin panel defines which hosts exist.
   separate sites (two databases, two admin panels).
 
 Full design: [project-description.md](project-description.md). Build plan and status: [plan.md](plan.md).
+Security notes and open items: [secure-project.md](secure-project.md).
 
 ## Contents
 
@@ -97,7 +98,8 @@ so a CDN never keeps them. The admin panel shows an "Under construction" badge. 
 the page with an optional `under-construction.html` (a full page, all helpers work); without it
 hostkit shows a simple page with the site title and the message from the same form.
 
-**Site admin:** `https://<domain>/admin` (or `https://domain.com/de/admin`). Sections:
+**Site admin:** `https://<domain>/mainadmin` (or `https://domain.com/de/mainadmin`). The old
+path `/admin` is a normal 404 page (fewer hits from bots that scan for `/admin`). Sections:
 Pages (routes + SEO tab), Menus, SEO (title suffix, default image, Organization JSON-LD,
 robots.txt, redirects, custom head/body HTML), Settings (fields from `theme.json`), Media,
 Modules, Users. A theme decides which sections show with `"admin": [...]` in `theme.json`;
@@ -107,6 +109,19 @@ Roles: **editor** = pages, menus, media, module screens. **admin** = everything.
 
 **Open site admin** from the main admin (key button) logs you in to any site, also when the
 site's own admin panel is switched off.
+
+**Login protection** (main admin and every site admin):
+
+- 5 wrong passwords per IP in 15 minutes, then that IP must wait.
+- 10 wrong passwords per user name in 15 minutes (from all IPs together), then that user name
+  must wait. This stops a botnet that tries one account from many IPs. An attacker can use it
+  to lock a user for 15 minutes; the main admin can still use "open site admin", and
+  `systemctl restart hostkit` clears all counters (they live in memory).
+- After 2 wrong passwords (same IP or same user name) the login form also asks for the CAPTCHA.
+- An unknown user name takes the same time as a wrong password, so the answer time does not
+  show which user names exist.
+- The real visitor IP comes from the web server (`X-Forwarded-For`, last entry). Behind a CDN the
+  web server must take the IP from the CDN header (Apache `mod_remoteip`, see the Apache example).
 
 **Reload** (main admin → Themes → refresh button, or `systemctl reload hostkit`): re-parses all
 themes, reloads the site list, closes the site databases and clears the page cache.
@@ -129,7 +144,9 @@ Flags come **before** the command.
 
 Flags: `-root /srv/hostkit`, `-listen 127.0.0.1:8080`, `-panel-host panel.example.com`,
 `-backup-dir /srv/backups`, `-log-level info`, `-fallback-html <file>` (page for unknown hosts),
-`-dev` (http URLs, cookies without `Secure`, hostkit serves static files itself), `-static`.
+`-dev` (http URLs, cookies without `Secure`, hostkit serves static files itself), `-static`,
+`-notify-url <gateway URL without m=>` (Telegram messages, for example from the contact form;
+empty = off), `-server-name <name>` (first part of the Telegram sender code; default: host name).
 
 ## Convert an HTML/CSS design into a theme
 
@@ -215,6 +232,7 @@ Helpers:
 | `excerpt` | `{{excerpt .Body 160}}` | Plain-text summary |
 | `t` | `{{t "read_more"}}` | Text from `theme.json` `strings` (a setting `t_<key>` overrides it) |
 | `csrf` | `{{csrf}}` | Hidden input for forms that post to a module |
+| `captcha` | `{{captcha}}` or `{{captcha "form-control"}}` | CAPTCHA widget: picture of 5 digits (click = new picture) + text input. The second form adds a CSS class to the input. Texts: strings `captcha` (placeholder) and `captcha_title` (tooltip); defaults by site language. Style with `.hk-captcha`, `.hk-captcha-img`, `.hk-captcha-input`. Several on one page are fine |
 | `dict` | `{{template "c/card" (dict "Title" "Hi")}}` | A map, to pass several values to a component |
 | `url` | `{{url "/contact"}}` | Site path with the prefix (`/de/contact`) |
 | `absurl` | `{{absurl .Page.URL}}` | Absolute URL on the primary domain |
@@ -238,10 +256,15 @@ Its result is `.Data` in the template.
 
 | Module | Does | Template data / settings |
 | --- | --- | --- |
-| `contact` | Form with honeypot (`website` field), CSRF, 5 messages per IP per 10 minutes; saves to `module_data`, optional SMTP | `.Data.Sent`, `.Data.Error`, `.Data.Values`. Form fields `name email phone subject message`, optional `_return` path. Settings `contact_to`, `smtp_host` (`host:port`), `smtp_user`, `smtp_pass`, `smtp_from`. Admin screen: Modules → submissions |
+| `contact` | Form with honeypot (`website` field), CSRF, CAPTCHA, 5 messages per IP per 10 minutes; saves to `module_data`, Telegram message to the monitoring group, optional SMTP | `.Data.Sent`, `.Data.Error`, `.Data.Values`. Form fields `name email phone subject message`, optional `_return` path (a local path only). **Every form that posts to the contact page needs `{{captcha}}`.** Settings `contact_captcha=0` (no CAPTCHA), `contact_telegram=0` (no Telegram), `contact_to`, `smtp_host` (`host:port`), `smtp_user`, `smtp_pass`, `smtp_from`. Admin screen: Modules → submissions |
 | `list` | Child pages with `?p=2` pagination | Module settings `prefix=news/`, `per_page=10`. `.Data.Items`, `.Data.Page`, `.Data.Pages`, `.Data.PrevURL`, `.Data.NextURL` |
 | `search` | Full-text search (SQLite FTS5) | `?q=`. `.Data.Query`, `.Data.Items`, `.Data.Count` |
 | `redirect` | 301 to another URL | Module setting `redirect_url=https://…` |
+
+**Shared tools for module code** (in `module.Ctx`): `ctx.CaptchaValid()` checks the
+`{{captcha}}` fields (single use: call it once per request), `ctx.Notify(title, lines...)` sends a
+Telegram message to the monitoring group (needs `-notify-url`; build lines with `notify.Field` /
+`notify.Esc`), `ctx.CSRFValid()` checks `{{csrf}}`, `ctx.ClientIP` is the visitor IP.
 
 Write a new module in `modules/<name>/`:
 

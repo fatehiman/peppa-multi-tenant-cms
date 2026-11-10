@@ -36,6 +36,7 @@ import (
 	"hostkit/internal/db"
 	"hostkit/internal/mainadmin"
 	"hostkit/internal/module"
+	"hostkit/internal/notify"
 	"hostkit/internal/render"
 	"hostkit/internal/siteadmin"
 	"hostkit/internal/tenant"
@@ -129,7 +130,8 @@ func serve(cfg *config.Config) error {
 		return err
 	}
 	app := &core.App{Cfg: cfg, Reg: reg, Auth: am, Themes: render.NewSet(cfg.ThemesDir()), Cache: render.NewCache(8 << 20),
-		LoginLimit: auth.NewLimiter(5, 15*time.Minute), FormLimit: auth.NewLimiter(5, 10*time.Minute)}
+		Notify: &notify.Telegram{URL: cfg.NotifyURL, Server: cfg.Server}}
+	app.NewLimits()
 	for _, t := range app.Themes.List() {
 		if t.Error != "" {
 			slog.Warn("theme not loaded", "theme", t.Name, "err", t.Error)

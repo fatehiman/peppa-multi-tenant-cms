@@ -20,6 +20,10 @@ import (
 	"hostkit/migrations"
 )
 
+// AdminPath is the URL path of every site admin panel ("https://<domain>/mainadmin").
+// It can not be used as a host path prefix.
+const AdminPath = "/mainadmin"
+
 // Host is a domain plus an optional path prefix ("" or like "/de").
 type Host struct {
 	Domain  string
@@ -390,7 +394,7 @@ func ParseHosts(text string) ([]Host, error) {
 				return nil, fmt.Errorf("prefix too deep in %q", line)
 			}
 			prefix = "/" + prefix
-			if prefix == "/admin" || strings.HasPrefix(prefix, "/_") {
+			if prefix == "/admin" || prefix == AdminPath || strings.HasPrefix(prefix, "/_") {
 				return nil, fmt.Errorf("reserved prefix in %q", line)
 			}
 		}

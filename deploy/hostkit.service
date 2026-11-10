@@ -1,5 +1,7 @@
 # /etc/systemd/system/hostkit.service
 # Edit the ExecStart flags (-listen, -panel-host, -fallback-html) for your server.
+# Telegram messages (contact form): add -notify-url '<gateway URL without m=>' and
+# -server-name <name>. The gateway URL holds a password: keep it on the server only.
 [Unit]
 Description=hostkit multi-tenant website engine
 After=network.target

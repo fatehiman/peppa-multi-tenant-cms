@@ -9,6 +9,7 @@
   <label>Name<input name="name" value="{{with .Data.Values}}{{.Name}}{{end}}"></label>
   <label>Email<input type="email" name="email" value="{{with .Data.Values}}{{.Email}}{{end}}"></label>
   <label>Message<textarea name="message" rows="6">{{with .Data.Values}}{{.Message}}{{end}}</textarea></label>
+  <div class="captcha">{{captcha}}</div>
   <button type="submit">{{t "send"}}</button>
 </form>
 {{end}}

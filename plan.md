@@ -96,7 +96,7 @@ hostkit/
 - `cmd/hostkit/main.go` imports all four with blank imports so `init()` registers them.
 
 ### 8. Host router and public pages
-- `internal/web`: `Router` implements `http.Handler`. Order: panel host → main admin mux; lookup by domain + first segment (longest prefix); unknown host → 404; alias or `www` → 301 to primary host (prefix kept); strip the prefix from `r.URL.Path` and store `BasePath` in the request context; disabled → 503 maintenance page with `Retry-After` (and `/robots.txt` → `Disallow: /`); `/admin/` → site admin mux (or 404 if `admin_enabled` is false); `/robots.txt` and `/sitemap.xml` → seo handlers; canonical URL fix (trailing slash, upper-case) → 301; redirects table → 301 / 302 / 410 and `hits+1`; module prefix routes; page by slug; `404.html`.
+- `internal/web`: `Router` implements `http.Handler`. Order: panel host → main admin mux; lookup by domain + first segment (longest prefix); unknown host → 404; alias or `www` → 301 to primary host (prefix kept); strip the prefix from `r.URL.Path` and store `BasePath` in the request context; disabled → 503 maintenance page with `Retry-After` (and `/robots.txt` → `Disallow: /`); `/mainadmin/` → site admin mux (or 404 if `admin_enabled` is false); `/robots.txt` and `/sitemap.xml` → seo handlers; canonical URL fix (trailing slash, upper-case) → 301; redirects table → 301 / 302 / 410 and `hits+1`; module prefix routes; page by slug; `404.html`.
 - Public page handler: cache lookup (serve 304 on matching `If-None-Match`), else load page, run module if set, render template, store in cache if no module.
 - Middleware: recover from panics, request log, security headers not set by Nginx.
 
@@ -150,7 +150,7 @@ hostkit/
 - SEO tests: `{{seo}}` output contains title with suffix, description, canonical, robots, og and twitter tags, JSON-LD; `/sitemap.xml` lists only published `in_sitemap` pages with `lastmod`; `/robots.txt` default and custom text; redirects 301 / 302 / 410 and hit count; canonical 301s for alias, `www`, trailing slash and upper-case slug; slug change creates a redirect row.
 - Component tests: `dict` passes values; shortcode parser handles quotes, missing attrs and unknown names; the same `c/listbox` name in two themes renders different HTML; a theme cannot reach another theme's component.
 - Admin section tests: a theme listing `["pages", "seo"]` hides the other sections and their routes return 404.
-- Prefix host tests: `domain.com/de/kontakt` reaches the `/de` site with path `/kontakt`; `domain.com/design` reaches the root site; `/de/admin` and `/admin` have separate sessions; menu, canonical and sitemap URLs of the `/de` site start with `/de`; root `robots.txt` lists `/de/sitemap.xml`; a domain with only a prefixed site returns 404 at `/` and a default `robots.txt`.
+- Prefix host tests: `domain.com/de/kontakt` reaches the `/de` site with path `/kontakt`; `domain.com/design` reaches the root site; `/de/mainadmin` and `/mainadmin` have separate sessions; menu, canonical and sitemap URLs of the `/de` site start with `/de`; root `robots.txt` lists `/de/sitemap.xml`; a domain with only a prefixed site returns 404 at `/` and a default `robots.txt`.
 - Load check script (`go test -run Bench` or a small tool): create 20 sites × 50 pages, send 1,000 mixed requests, print RSS; then wait 10 minutes idle and print RSS. Targets: < 50 MB and < 30 MB.
 - Timing: log render time per request at debug level; cached < 1 ms, uncached < 5 ms.
 
@@ -205,6 +205,18 @@ Added on 2026-11-10 (second round):
   (migration `main/0002_no_www_hosts.sql` removed the old ones).
 - **Subdomains** are separate hosts (tested: own site, session, robots.txt, sitemap; `www.sub` → `sub`).
 - **User names:** main admins and site users may log in with a user name (for example `mainadmin`), not only an email.
+
+Added on 2026-11-10 (security round, see [secure-project.md](secure-project.md)):
+
+- **Site admin path is `/mainadmin`** (`tenant.AdminPath`); `/admin` is a normal 404 and both are reserved host prefixes.
+- **Login limits per user name** (10 per 15 minutes, all IPs) next to the per-IP limit (5 per 15 minutes).
+- **CAPTCHA** (`internal/captcha`): self-hosted SVG seven-segment digits, single-use answers in memory (15 min),
+  ids made in the browser so cached pages work. Theme helper `{{captcha}}`, `/_captcha?k=<id>` on every site and on the
+  panel host. Required by the contact module; on admin logins after 2 failures.
+- **Telegram** (`internal/notify`): the sms.kimiasoft gateway, standard message format, 5 tries. Flag `-notify-url`;
+  modules call `ctx.Notify`. The contact module sends every message.
+- **Fixes:** unknown user names now cost the same bcrypt time (no user-name discovery by timing); the contact
+  `_return` path blocks tabs, spaces and backslashes (it was an open redirect: `/<TAB>/evil.com`).
 
 Not done yet / to check on the real server:
 

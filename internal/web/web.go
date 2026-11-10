@@ -90,7 +90,11 @@ func (rt *Router) route(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rest := m.Rest
-	isAdmin := rest == "/admin" || strings.HasPrefix(rest, "/admin/")
+	if rest == "/_captcha" { // CAPTCHA pictures: public forms and the admin login
+		app.ServeCaptcha(w, r, core.SiteScope(s.Key))
+		return
+	}
+	isAdmin := rest == core.AdminPath || strings.HasPrefix(rest, core.AdminPath+"/")
 	if s.Disabled() && !isAdmin {
 		if rest == "/robots.txt" {
 			writeText(w, "text/plain; charset=utf-8", "User-agent: *\nDisallow: /\n")
@@ -260,7 +264,11 @@ func (rt *Router) public(w http.ResponseWriter, r *http.Request, fullPath string
 	mctx := func(m module.Module, p *store.Page) *module.Ctx {
 		return &module.Ctx{Site: s, Page: p, DB: d, W: w, R: r, Store: module.Store{DB: d, Module: m.Name()},
 			Settings: settings, Path: path, ClientIP: auth.ClientIP(r),
-			CSRFValid:  func() bool { return app.Auth.CheckPublicCSRF(s.Key, r.FormValue("_csrf")) },
+			CSRFValid:    func() bool { return app.Auth.CheckPublicCSRF(s.Key, r.FormValue("_csrf")) },
+			CaptchaValid: func() bool { return app.Captcha.FromRequest(r, core.SiteScope(s.Key)) },
+			Notify: func(title string, body ...string) {
+				app.Notify.Send(title, s.Domain+s.BasePath+"-hostkit-"+m.Name(), body...)
+			},
 			Invalidate: func() { app.Cache.Invalidate(s.Key) }}
 	}
 

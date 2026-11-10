@@ -61,17 +61,23 @@ type Migrator interface {
 
 // Ctx gives a module everything it needs, scoped to one site.
 type Ctx struct {
-	Site       *tenant.Site
-	Page       *store.Page // nil for prefix routes
-	DB         *sql.DB     // this site's site.db only
-	W          http.ResponseWriter
-	R          *http.Request
-	Store      Store
-	Settings   map[string]string
-	Path       string // request path without the site prefix
-	ClientIP   string
-	CSRFValid  func() bool // checks the public form token
-	Invalidate func()      // clears this site's page cache
+	Site      *tenant.Site
+	Page      *store.Page // nil for prefix routes
+	DB        *sql.DB     // this site's site.db only
+	W         http.ResponseWriter
+	R         *http.Request
+	Store     Store
+	Settings  map[string]string
+	Path      string // request path without the site prefix
+	ClientIP  string
+	CSRFValid func() bool // checks the public form token
+	// CaptchaValid checks the form fields captcha_id + captcha (theme helper {{captcha}}).
+	// Each answer is single-use: call it once per request.
+	CaptchaValid func() bool
+	// Notify sends a Telegram message to the monitoring group (title = plain text,
+	// body lines = HTML: build them with notify.Field / notify.Esc). Never blocks.
+	Notify     func(title string, body ...string)
+	Invalidate func() // clears this site's page cache
 }
 
 // URL builds a site URL path: "/contact" → "/de/contact" for a prefixed site.
@@ -79,7 +85,7 @@ func (c *Ctx) URL(path string) string { return c.Site.BasePath + path }
 
 // AdminScreen is a module page inside the site admin.
 type AdminScreen struct {
-	Key    string // URL part: /admin/modules/<module>/<key>
+	Key    string // URL part: /mainadmin/modules/<module>/<key>
 	Title  string
 	Handle func(a *AdminCtx) (template.HTML, error)
 }

@@ -71,3 +71,4 @@ input:focus,select,textarea:focus{outline-color:var(--accent)}
 .child td:first-child{padding-left:28px}
 code{background:var(--gray-b);padding:1px 5px;border-radius:4px;font-size:12px}
 .sister{font-size:12px;margin-top:6px}
+.captcha .hk-captcha{display:flex;gap:10px;align-items:center}.captcha .hk-captcha-img{border:1px solid var(--line);border-radius:7px;flex:none}

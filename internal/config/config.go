@@ -20,6 +20,8 @@ type Config struct {
 	Static    bool // serve /_t/ and /_m/ from Go (normally Nginx/Apache does it)
 	Scheme    string
 	Fallback  string // HTML file served (200) for unknown hosts; empty = plain 404
+	NotifyURL string // Telegram gateway URL without m= (empty = no Telegram messages)
+	Server    string // server name used in Telegram sender codes
 }
 
 // Parse reads flags from args and returns the config and the remaining arguments.
@@ -32,6 +34,9 @@ func Parse(args []string) (*Config, []string) {
 	fs.StringVar(&c.LogLevel, "log-level", "info", "debug, info, warn or error")
 	fs.StringVar(&c.BackupDir, "backup-dir", "/srv/backups", "folder for nightly backups")
 	fs.StringVar(&c.Fallback, "fallback-html", "", "HTML file served for unknown hosts (when hostkit is the web server's catch-all); empty = 404")
+	fs.StringVar(&c.NotifyURL, "notify-url", "", "Telegram gateway URL without m=, e.g. https://sms.kimiasoft.ir/sendMsg?p=…&c=t&r=monitoring (empty = off)")
+	host, _ := os.Hostname()
+	fs.StringVar(&c.Server, "server-name", host, "server name shown in Telegram messages")
 	fs.BoolVar(&c.Dev, "dev", false, "development mode: http URLs, cookies without Secure, static files served by hostkit")
 	fs.BoolVar(&c.Static, "static", false, "serve /_t/ and /_m/ from hostkit (on by default with -dev)")
 	_ = fs.Parse(args)

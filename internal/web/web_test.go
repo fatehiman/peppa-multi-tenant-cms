@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"hostkit/internal/auth"
 	"hostkit/internal/config"
@@ -81,8 +80,8 @@ func newEnv(t *testing.T) *env {
 	}
 	reg.OnOpen = module.RunMigrations
 	am, _ := auth.NewManager(mainDB, false, filepath.Join(root, "secret.key"))
-	app := &core.App{Cfg: cfg, Reg: reg, Auth: am, Themes: render.NewSet(cfg.ThemesDir()), Cache: render.NewCache(8 << 20),
-		LoginLimit: auth.NewLimiter(5, 15*time.Minute), FormLimit: auth.NewLimiter(5, time.Minute)}
+	app := &core.App{Cfg: cfg, Reg: reg, Auth: am, Themes: render.NewSet(cfg.ThemesDir()), Cache: render.NewCache(8 << 20)}
+	app.NewLimits()
 	ma, err := mainadmin.New(app)
 	if err != nil {
 		t.Fatal(err)
@@ -294,11 +293,11 @@ func TestComponentsInTwoThemes(t *testing.T) {
 
 func login(e *env, host, prefix, email string) (*http.Client, string) {
 	c := client()
-	code, _, h := e.do(c, "POST", host, prefix+"/admin/login", url.Values{"email": {email}, "password": {"password1"}})
-	if code != 303 || !strings.HasSuffix(h.Get("Location"), "/admin/pages") {
+	code, _, h := e.do(c, "POST", host, prefix+"/mainadmin/login", url.Values{"email": {email}, "password": {"password1"}})
+	if code != 303 || !strings.HasSuffix(h.Get("Location"), "/mainadmin/pages") {
 		e.t.Fatalf("login %s%s: %d %s", host, prefix, code, h.Get("Location"))
 	}
-	_, page, _ := e.do(c, "GET", host, prefix+"/admin/pages/new", nil)
+	_, page, _ := e.do(c, "GET", host, prefix+"/mainadmin/pages/new", nil)
 	m := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(page)
 	if m == nil {
 		e.t.Fatal("no csrf")
@@ -309,12 +308,12 @@ func login(e *env, host, prefix, email string) (*http.Client, string) {
 func TestSessionsAreScopedPerSite(t *testing.T) {
 	e := newEnv(t)
 	c, _ := login(e, "a.test", "", "ed@a.test")
-	if code, _, _ := e.do(c, "GET", "a.test", "/admin/pages", nil); code != 200 {
+	if code, _, _ := e.do(c, "GET", "a.test", "/mainadmin/pages", nil); code != 200 {
 		t.Fatalf("own admin: %d", code)
 	}
 	// same browser on /de: must not be logged in
-	if code, _, _ := e.do(c, "GET", "a.test", "/de/admin/pages", nil); code != 303 {
-		t.Errorf("/de/admin with root session: %d", code)
+	if code, _, _ := e.do(c, "GET", "a.test", "/de/mainadmin/pages", nil); code != 303 {
+		t.Errorf("/de/mainadmin with root session: %d", code)
 	}
 	// the cookie value of site A replayed for site B
 	u, _ := url.Parse(e.srv.URL)
@@ -324,7 +323,7 @@ func TestSessionsAreScopedPerSite(t *testing.T) {
 			tok = ck.Value
 		}
 	}
-	req, _ := http.NewRequest("GET", e.srv.URL+"/admin/pages", nil)
+	req, _ := http.NewRequest("GET", e.srv.URL+"/mainadmin/pages", nil)
 	req.Host = "b.test"
 	req.AddCookie(&http.Cookie{Name: auth.CookieName("b"), Value: tok})
 	res, _ := client().Do(req)
@@ -333,7 +332,7 @@ func TestSessionsAreScopedPerSite(t *testing.T) {
 		t.Errorf("site A token accepted on site B: %d", res.StatusCode)
 	}
 	// wrong user of another site cannot log in here
-	if code, _, _ := e.do(client(), "POST", "b.test", "/admin/login", url.Values{"email": {"ed@a.test"}, "password": {"password1"}}); code == 303 {
+	if code, _, _ := e.do(client(), "POST", "b.test", "/mainadmin/login", url.Values{"email": {"ed@a.test"}, "password": {"password1"}}); code == 303 {
 		t.Error("user of site a logged in on site b")
 	}
 }
@@ -342,11 +341,11 @@ func TestAdminSaveCSRFAndSlugRedirect(t *testing.T) {
 	e := newEnv(t)
 	c, csrf := login(e, "a.test", "", "ed@a.test")
 	form := url.Values{"title": {"Page"}, "slug": {"first"}, "status": {"published"}, "in_sitemap": {"1"}}
-	if code, _, _ := e.do(c, "POST", "a.test", "/admin/pages/save", form); code != 403 {
+	if code, _, _ := e.do(c, "POST", "a.test", "/mainadmin/pages/save", form); code != 403 {
 		t.Errorf("save without csrf: %d", code)
 	}
 	form.Set("_csrf", csrf)
-	if code, _, _ := e.do(c, "POST", "a.test", "/admin/pages/save", form); code != 303 {
+	if code, _, _ := e.do(c, "POST", "a.test", "/mainadmin/pages/save", form); code != 303 {
 		t.Fatalf("save: %d", code)
 	}
 	p, err := store.PageBySlug(e.db("a"), "first")
@@ -359,12 +358,12 @@ func TestAdminSaveCSRFAndSlugRedirect(t *testing.T) {
 	form.Set("id", strconv.FormatInt(p.ID, 10))
 	form.Set("slug", "second")
 	form.Set("add_redirect", "1")
-	e.do(c, "POST", "a.test", "/admin/pages/save", form)
+	e.do(c, "POST", "a.test", "/mainadmin/pages/save", form)
 	if code, _, h := e.get("a.test", "/first"); code != 301 || h.Get("Location") != "/second" {
 		t.Errorf("slug change redirect: %d %s", code, h.Get("Location"))
 	}
 	form.Set("json_ld", "{bad")
-	if _, body, _ := e.do(c, "POST", "a.test", "/admin/pages/save", form); !strings.Contains(body, "not valid JSON") {
+	if _, body, _ := e.do(c, "POST", "a.test", "/mainadmin/pages/save", form); !strings.Contains(body, "not valid JSON") {
 		t.Error("invalid JSON-LD accepted")
 	}
 }
@@ -372,16 +371,16 @@ func TestAdminSaveCSRFAndSlugRedirect(t *testing.T) {
 func TestSectionsFromTheme(t *testing.T) {
 	e := newEnv(t)
 	c, _ := login(e, "b.test", "", "ed@b.test")
-	_, page, _ := e.do(c, "GET", "b.test", "/admin/pages", nil)
-	if strings.Contains(page, "/admin/menus") || strings.Contains(page, "/admin/media") || !strings.Contains(page, "/admin/seo") {
+	_, page, _ := e.do(c, "GET", "b.test", "/mainadmin/pages", nil)
+	if strings.Contains(page, "/mainadmin/menus") || strings.Contains(page, "/mainadmin/media") || !strings.Contains(page, "/mainadmin/seo") {
 		t.Error("beta (pages, seo) shows other sections")
 	}
-	for _, p := range []string{"/admin/menus", "/admin/media", "/admin/settings", "/admin/users"} {
+	for _, p := range []string{"/mainadmin/menus", "/mainadmin/media", "/mainadmin/settings", "/mainadmin/users"} {
 		if code, _, _ := e.do(c, "GET", "b.test", p, nil); code != 404 {
 			t.Errorf("%s: %d, want 404", p, code)
 		}
 	}
-	if code, _, _ := e.do(c, "GET", "b.test", "/admin/seo", nil); code != 200 {
+	if code, _, _ := e.do(c, "GET", "b.test", "/mainadmin/seo", nil); code != 200 {
 		t.Errorf("seo: %d", code)
 	}
 }
@@ -390,6 +389,8 @@ func TestContactModuleAndDataIsolation(t *testing.T) {
 	e := newEnv(t)
 	store.SavePage(e.db("a"), &store.Page{Slug: "contact", Title: "Contact", Template: "contact", Module: "contact", Status: "published"})
 	store.SavePage(e.db("b"), &store.Page{Slug: "contact", Title: "Contact", Template: "contact", Module: "contact", Status: "published"})
+	store.SetSettings(e.db("a"), map[string]string{"contact_captcha": "0"})
+	store.SetSettings(e.db("b"), map[string]string{"contact_captcha": "0"})
 	_, page, _ := e.get("a.test", "/contact")
 	m := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(page)
 	if m == nil {
@@ -486,16 +487,16 @@ func TestUnderConstruction(t *testing.T) {
 		t.Errorf("/de site: %d", code)
 	}
 	// the admin panel itself still works for visitors (login page)
-	if code, _, _ := e.get("a.test", "/admin/login"); code != 200 {
+	if code, _, _ := e.get("a.test", "/mainadmin/login"); code != 200 {
 		t.Errorf("admin login page: %d", code)
 	}
 	// switch off from the admin SEO form
-	_, page, _ := e.do(c, "GET", "a.test", "/admin/seo", nil)
+	_, page, _ := e.do(c, "GET", "a.test", "/mainadmin/seo", nil)
 	if !strings.Contains(page, "Under construction") {
 		t.Error("no under construction notice in the admin")
 	}
 	csrf := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(page)[1]
-	e.do(c, "POST", "a.test", "/admin/seo", url.Values{"_csrf": {csrf}})
+	e.do(c, "POST", "a.test", "/mainadmin/seo", url.Values{"_csrf": {csrf}})
 	if code, _, _ := e.get("a.test", "/about"); code != 200 {
 		t.Errorf("after switch off: %d", code)
 	}
@@ -523,11 +524,106 @@ func TestSubdomainAndWWW(t *testing.T) {
 	}
 	// session of the parent domain is not valid on the subdomain
 	c, _ := login(e, "a.test", "", "ed@a.test")
-	if code, _, _ := e.do(c, "GET", "sub.a.test", "/admin/pages", nil); code != 303 {
+	if code, _, _ := e.do(c, "GET", "sub.a.test", "/mainadmin/pages", nil); code != 303 {
 		t.Errorf("parent session accepted on subdomain: %d", code)
 	}
 	// a www host can not be added
 	if _, err := tenant.ParseHosts("www.new.test"); err == nil {
 		t.Error("www host accepted")
+	}
+}
+
+func TestContactCaptchaAndOpenRedirect(t *testing.T) {
+	e := newEnv(t)
+	store.SavePage(e.db("a"), &store.Page{Slug: "contact", Title: "Contact", Template: "contact", Module: "contact", Status: "published"})
+	_, page, _ := e.get("a.test", "/contact")
+	csrf := regexp.MustCompile(`name="_csrf" value="([^"]+)"`).FindStringSubmatch(page)[1]
+	code, svg, h := e.get("a.test", "/_captcha?k=testid12345")
+	if code != 200 || !strings.HasPrefix(h.Get("Content-Type"), "image/svg+xml") || strings.Contains(h.Get("Cache-Control"), "public") || !strings.Contains(svg, "<svg") {
+		t.Fatalf("captcha image: %d %q", code, h.Get("Content-Type"))
+	}
+	answer := e.app.Captcha.Code("site:a", "testid12345")
+	form := url.Values{"_csrf": {csrf}, "name": {"N"}, "email": {"n@x.test"}, "message": {"Hi"}}
+	if _, body, _ := e.do(nil, "POST", "a.test", "/contact", form); !strings.Contains(body, "ERR:") {
+		t.Fatal("contact without captcha accepted")
+	}
+	form.Set("captcha_id", "testid12345")
+	form.Set("captcha", "9"+answer[1:]) // wrong first digit
+	if answer[0] == '9' {
+		form.Set("captcha", "8"+answer[1:])
+	}
+	if _, body, _ := e.do(nil, "POST", "a.test", "/contact", form); !strings.Contains(body, "ERR:") {
+		t.Fatal("wrong captcha accepted")
+	}
+	// a wrong answer uses up the picture: the right answer now fails too
+	form.Set("captcha", answer)
+	if _, body, _ := e.do(nil, "POST", "a.test", "/contact", form); !strings.Contains(body, "ERR:") {
+		t.Fatal("used captcha accepted")
+	}
+	e.get("a.test", "/_captcha?k=testid67890")
+	form.Set("captcha_id", "testid67890")
+	form.Set("captcha", e.app.Captcha.Code("site:a", "testid67890"))
+	if code, _, h := e.do(nil, "POST", "a.test", "/contact", form); code != 303 || !strings.Contains(h.Get("Location"), "sent=1") {
+		t.Fatalf("good captcha: %d", code)
+	}
+	if code, _, _ := e.get("a.test", "/_captcha?k=bad"); code != 400 {
+		t.Errorf("bad captcha id: %d", code)
+	}
+	// open redirect: a tab (browsers delete it) or a backslash must not lead to another host
+	for _, ret := range []string{"/\t/evil.com", "/\\evil.com", "//evil.com", "/%09/evil.com", "/ /evil.com"} {
+		_, _, h := e.do(nil, "POST", "a.test", "/contact", url.Values{"website": {"bot"}, "_return": {ret}})
+		loc := h.Get("Location")
+		if strings.ContainsAny(loc, "\t\\ ") || strings.HasPrefix(loc, "//") || !strings.HasPrefix(loc, "/") {
+			t.Errorf("_return %q gave Location %q", ret, loc)
+		}
+	}
+}
+
+func TestOldAdminPathIsGone(t *testing.T) {
+	e := newEnv(t)
+	if code, _, _ := e.get("a.test", "/admin/login"); code != 404 {
+		t.Errorf("/admin/login: %d", code)
+	}
+	if code, _, _ := e.get("a.test", "/mainadmin/login"); code != 200 {
+		t.Errorf("/mainadmin/login: %d", code)
+	}
+}
+
+func TestLoginCaptchaAndUserLimit(t *testing.T) {
+	e := newEnv(t)
+	c := client()
+	login := func(pw string, extra url.Values) (int, string) {
+		f := url.Values{"email": {"ed@a.test"}, "password": {pw}}
+		for k, v := range extra {
+			f[k] = v
+		}
+		code, body, _ := e.do(c, "POST", "a.test", "/mainadmin/login", f)
+		return code, body
+	}
+	if _, page, _ := e.do(c, "GET", "a.test", "/mainadmin/login", nil); strings.Contains(page, `name="captcha_id"`) {
+		t.Fatal("captcha shown before any failure")
+	}
+	login("wrong-pass", nil)
+	login("wrong-pass", nil)
+	if _, page, _ := e.do(c, "GET", "a.test", "/mainadmin/login", nil); !strings.Contains(page, `name="captcha_id"`) {
+		t.Fatal("no captcha after 2 failures")
+	}
+	if code, body := login("password1", nil); code == 303 || !strings.Contains(body, "numbers in the picture") {
+		t.Fatalf("login without captcha after failures: %d", code)
+	}
+	e.do(c, "GET", "a.test", "/_captcha?k=loginid12345", nil)
+	if code, _ := login("password1", url.Values{"captcha_id": {"loginid12345"}, "captcha": {e.app.Captcha.Code("site:a", "loginid12345")}}); code != 303 {
+		t.Fatalf("login with captcha: %d", code)
+	}
+	// user name limit: failures from many IPs block that user name
+	for i := 0; i < 10; i++ {
+		e.app.LoginFailed("site:a", "10.0.0."+strconv.Itoa(i), "ed@a.test")
+	}
+	r := httptest.NewRequest("POST", "/", nil)
+	if msg := e.app.LoginGate(r, "site:a", "10.9.9.9", "ED@a.test"); !strings.Contains(msg, "Too many") {
+		t.Errorf("user limit not applied: %q", msg)
+	}
+	if msg := e.app.LoginGate(r, "site:a", "10.9.9.9", "other@a.test"); msg != "" {
+		t.Errorf("other user blocked: %q", msg)
 	}
 }

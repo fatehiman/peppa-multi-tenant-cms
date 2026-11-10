@@ -38,11 +38,19 @@ func CheckPassword(hash, pw string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(pw)) == nil
 }
 
-// dummyHash is used so that unknown users take as long as known ones.
-var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), bcrypt.MinCost)
+// dummyHash is used so that unknown users take as long as known ones. It is made with
+// the real BcryptCost (on first use), otherwise the answer time would show which user
+// names exist.
+var (
+	dummyOnce sync.Once
+	dummyHash []byte
+)
 
-// BurnTime spends bcrypt time for an unknown user.
-func BurnTime() { _ = bcrypt.CompareHashAndPassword(dummyHash, []byte("x")) }
+// BurnTime spends the same bcrypt time as a real password check, for an unknown user.
+func BurnTime() {
+	dummyOnce.Do(func() { dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), BcryptCost) })
+	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte("x"))
+}
 
 // RandomToken returns n random bytes as URL-safe base64.
 func RandomToken(n int) string {
@@ -249,6 +257,13 @@ func (l *Limiter) Allow(key string) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return len(l.prune(key, time.Now())) < l.Max
+}
+
+// Count returns the failures of key inside the window.
+func (l *Limiter) Count(key string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return len(l.prune(key, time.Now()))
 }
 
 // Add records one failure (or one use) for key.

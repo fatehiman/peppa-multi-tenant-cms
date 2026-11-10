@@ -1,4 +1,4 @@
-// Package siteadmin is the admin panel every site gets at /admin. Its templates are
+// Package siteadmin is the admin panel every site gets at /mainadmin (core.AdminPath). Its templates are
 // embedded and shared by all sites; a theme never changes its look.
 package siteadmin
 
@@ -14,6 +14,7 @@ import (
 
 	"hostkit/internal/adminui"
 	"hostkit/internal/auth"
+	"hostkit/internal/captcha"
 	"hostkit/internal/core"
 	"hostkit/internal/store"
 )
@@ -21,7 +22,7 @@ import (
 //go:embed tmpl/*.html
 var tmplFS embed.FS
 
-// Handler serves /admin/* for the site in the request context.
+// Handler serves /mainadmin/* for the site in the request context.
 type Handler struct {
 	App  *core.App
 	tmpl map[string]*template.Template
@@ -43,7 +44,7 @@ type req struct {
 	W        http.ResponseWriter
 	R        *http.Request
 	U        *user
-	A        string // admin base URL, like "/de/admin"
+	A        string // admin base URL, like "/de/mainadmin"
 	Sections []string
 }
 
@@ -79,7 +80,7 @@ type handlerFunc func(q *req)
 func (h *Handler) open(fn handlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sr := core.Site(r)
-		fn(&req{SiteReq: sr, W: w, R: r, A: sr.Site.BasePath + "/admin"})
+		fn(&req{SiteReq: sr, W: w, R: r, A: sr.Site.BasePath + core.AdminPath})
 	}
 }
 
@@ -88,7 +89,7 @@ func (h *Handler) open(fn handlerFunc) http.HandlerFunc {
 func (h *Handler) need(section string, fn handlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sr := core.Site(r)
-		q := &req{SiteReq: sr, W: w, R: r, A: sr.Site.BasePath + "/admin"}
+		q := &req{SiteReq: sr, W: w, R: r, A: sr.Site.BasePath + core.AdminPath}
 		q.U = h.currentUser(r, sr)
 		if q.U == nil {
 			if !sr.Site.AdminEnabled {
@@ -247,44 +248,45 @@ func (q *req) cookiePath() string { return q.Site.BasePath + "/" }
 
 func (h *Handler) routes() {
 	m := h.mux
-	m.HandleFunc("GET /admin", h.need("", func(q *req) { http.Redirect(q.W, q.R, q.A+"/pages", http.StatusSeeOther) }))
-	m.HandleFunc("GET /admin/{$}", h.need("", func(q *req) { http.Redirect(q.W, q.R, q.A+"/pages", http.StatusSeeOther) }))
-	m.HandleFunc("GET /admin/login", h.open(h.loginForm))
-	m.HandleFunc("POST /admin/login", h.open(h.login))
-	m.HandleFunc("POST /admin/logout", h.need("", h.logout))
-	m.HandleFunc("GET /admin/open", h.open(h.openHandOver))
+	ap := core.AdminPath
+	m.HandleFunc("GET "+ap, h.need("", func(q *req) { http.Redirect(q.W, q.R, q.A+"/pages", http.StatusSeeOther) }))
+	m.HandleFunc("GET "+ap+"/{$}", h.need("", func(q *req) { http.Redirect(q.W, q.R, q.A+"/pages", http.StatusSeeOther) }))
+	m.HandleFunc("GET "+ap+"/login", h.open(h.loginForm))
+	m.HandleFunc("POST "+ap+"/login", h.open(h.login))
+	m.HandleFunc("POST "+ap+"/logout", h.need("", h.logout))
+	m.HandleFunc("GET "+ap+"/open", h.open(h.openHandOver))
 
-	m.HandleFunc("GET /admin/pages", h.need("pages", h.pagesList))
-	m.HandleFunc("GET /admin/pages/new", h.need("pages", h.pageEdit))
-	m.HandleFunc("GET /admin/pages/{id}", h.need("pages", h.pageEdit))
-	m.HandleFunc("POST /admin/pages/save", h.need("pages", h.pageSave))
-	m.HandleFunc("POST /admin/pages/{id}/delete", h.need("pages", h.pageDelete))
-	m.HandleFunc("POST /admin/pages/{id}/move", h.need("pages", h.pageMove))
+	m.HandleFunc("GET "+ap+"/pages", h.need("pages", h.pagesList))
+	m.HandleFunc("GET "+ap+"/pages/new", h.need("pages", h.pageEdit))
+	m.HandleFunc("GET "+ap+"/pages/{id}", h.need("pages", h.pageEdit))
+	m.HandleFunc("POST "+ap+"/pages/save", h.need("pages", h.pageSave))
+	m.HandleFunc("POST "+ap+"/pages/{id}/delete", h.need("pages", h.pageDelete))
+	m.HandleFunc("POST "+ap+"/pages/{id}/move", h.need("pages", h.pageMove))
 
-	m.HandleFunc("GET /admin/menus", h.need("menus", h.menus))
-	m.HandleFunc("POST /admin/menus/items/save", h.need("menus", h.menuItemSave))
-	m.HandleFunc("POST /admin/menus/items/{id}/delete", h.need("menus", h.menuItemDelete))
-	m.HandleFunc("POST /admin/menus/items/{id}/move", h.need("menus", h.menuItemMove))
+	m.HandleFunc("GET "+ap+"/menus", h.need("menus", h.menus))
+	m.HandleFunc("POST "+ap+"/menus/items/save", h.need("menus", h.menuItemSave))
+	m.HandleFunc("POST "+ap+"/menus/items/{id}/delete", h.need("menus", h.menuItemDelete))
+	m.HandleFunc("POST "+ap+"/menus/items/{id}/move", h.need("menus", h.menuItemMove))
 
-	m.HandleFunc("GET /admin/seo", h.need("seo", h.seoForm))
-	m.HandleFunc("POST /admin/seo", h.need("seo", h.seoSave))
-	m.HandleFunc("POST /admin/seo/redirects", h.need("seo", h.redirectAdd))
-	m.HandleFunc("POST /admin/seo/redirects/{id}/delete", h.need("seo", h.redirectDelete))
+	m.HandleFunc("GET "+ap+"/seo", h.need("seo", h.seoForm))
+	m.HandleFunc("POST "+ap+"/seo", h.need("seo", h.seoSave))
+	m.HandleFunc("POST "+ap+"/seo/redirects", h.need("seo", h.redirectAdd))
+	m.HandleFunc("POST "+ap+"/seo/redirects/{id}/delete", h.need("seo", h.redirectDelete))
 
-	m.HandleFunc("GET /admin/settings", h.need("settings", h.settingsForm))
-	m.HandleFunc("POST /admin/settings", h.need("settings", h.settingsSave))
+	m.HandleFunc("GET "+ap+"/settings", h.need("settings", h.settingsForm))
+	m.HandleFunc("POST "+ap+"/settings", h.need("settings", h.settingsSave))
 
-	m.HandleFunc("GET /admin/media", h.need("media", h.mediaList))
-	m.HandleFunc("POST /admin/media/upload", h.need("media", h.mediaUpload))
-	m.HandleFunc("POST /admin/media/{id}/alt", h.need("media", h.mediaAlt))
-	m.HandleFunc("POST /admin/media/{id}/delete", h.need("media", h.mediaDelete))
+	m.HandleFunc("GET "+ap+"/media", h.need("media", h.mediaList))
+	m.HandleFunc("POST "+ap+"/media/upload", h.need("media", h.mediaUpload))
+	m.HandleFunc("POST "+ap+"/media/{id}/alt", h.need("media", h.mediaAlt))
+	m.HandleFunc("POST "+ap+"/media/{id}/delete", h.need("media", h.mediaDelete))
 
-	m.HandleFunc("GET /admin/modules", h.need("modules", h.modulesList))
-	m.HandleFunc("/admin/modules/{module}/{screen}", h.need("modules", h.moduleScreen))
+	m.HandleFunc("GET "+ap+"/modules", h.need("modules", h.modulesList))
+	m.HandleFunc(ap+"/modules/{module}/{screen}", h.need("modules", h.moduleScreen))
 
-	m.HandleFunc("GET /admin/users", h.need("users", h.usersList))
-	m.HandleFunc("POST /admin/users/save", h.need("users", h.userSave))
-	m.HandleFunc("POST /admin/users/{id}/delete", h.need("users", h.userDelete))
+	m.HandleFunc("GET "+ap+"/users", h.need("users", h.usersList))
+	m.HandleFunc("POST "+ap+"/users/save", h.need("users", h.userSave))
+	m.HandleFunc("POST "+ap+"/users/{id}/delete", h.need("users", h.userDelete))
 }
 
 // ---------- login ----------
@@ -294,7 +296,21 @@ func (h *Handler) loginForm(q *req) {
 		http.NotFound(q.W, q.R)
 		return
 	}
-	q.render(h, "login", "Log in", "", map[string]string{"Email": ""})
+	h.renderLogin(q, "", "")
+}
+
+// renderLogin shows the login form; the CAPTCHA is added after CaptchaAfter failures.
+func (h *Handler) renderLogin(q *req, email, errMsg string) {
+	data := map[string]any{"Email": email}
+	if h.App.LoginNeedsCaptcha(core.SiteScope(q.Site.Key), auth.ClientIP(q.R), email) {
+		ph, title := captcha.Texts("en")
+		data["Captcha"] = captcha.Widget(q.Site.BasePath+"/_captcha", "", ph, title)
+	}
+	if errMsg != "" {
+		q.renderErr(h, "login", "Log in", "", errMsg, data)
+		return
+	}
+	q.render(h, "login", "Log in", "", data)
 }
 
 func (h *Handler) login(q *req) {
@@ -303,11 +319,10 @@ func (h *Handler) login(q *req) {
 		return
 	}
 	ip := auth.ClientIP(q.R)
-	limitKey := q.Site.Key + "|" + ip
+	scope := core.SiteScope(q.Site.Key)
 	email := strings.ToLower(strings.TrimSpace(q.R.FormValue("email")))
-	data := map[string]string{"Email": email}
-	if !h.App.LoginLimit.Allow(limitKey) {
-		q.renderErr(h, "login", "Log in", "", "Too many failed logins. Wait 15 minutes.", data)
+	if msg := h.App.LoginGate(q.R, scope, ip, email); msg != "" {
+		h.renderLogin(q, email, msg)
 		return
 	}
 	u, err := store.UserByEmail(q.DB, email)
@@ -315,11 +330,11 @@ func (h *Handler) login(q *req) {
 		auth.BurnTime()
 	}
 	if err != nil || !auth.CheckPassword(u.PasswordHash, q.R.FormValue("password")) {
-		h.App.LoginLimit.Add(limitKey)
-		q.renderErr(h, "login", "Log in", "", "Wrong email or password.", data)
+		h.App.LoginFailed(scope, ip, email)
+		h.renderLogin(q, email, "Wrong email or password.")
 		return
 	}
-	h.App.LoginLimit.Reset(limitKey)
+	h.App.LoginOK(scope, ip, email)
 	if _, err := h.App.Auth.Create(q.W, q.Site.Key, "site:"+strconv.FormatInt(u.ID, 10), q.cookiePath()); err != nil {
 		q.fail(err)
 		return

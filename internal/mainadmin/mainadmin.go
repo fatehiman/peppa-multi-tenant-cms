@@ -17,6 +17,7 @@ import (
 	"hostkit/internal/adminui"
 	"hostkit/internal/auth"
 	"hostkit/internal/backup"
+	"hostkit/internal/captcha"
 	"hostkit/internal/core"
 	"hostkit/internal/tenant"
 )
@@ -57,6 +58,7 @@ func New(app *core.App) (*Handler, error) {
 	m := h.mux
 	m.HandleFunc("GET /login", h.loginForm)
 	m.HandleFunc("POST /login", h.login)
+	m.HandleFunc("GET /_captcha", func(w http.ResponseWriter, r *http.Request) { app.ServeCaptcha(w, r, "main") })
 	m.HandleFunc("POST /logout", h.need(h.logout))
 	m.HandleFunc("GET /{$}", h.need(h.sites))
 	m.HandleFunc("GET /sites/new", h.need(h.siteForm))
@@ -138,21 +140,30 @@ func (q *req) id() int64 {
 // ---------- login ----------
 
 func (h *Handler) loginForm(w http.ResponseWriter, r *http.Request) {
-	h.render(&req{W: w, R: r}, "login", "Log in", "", map[string]string{"Email": ""})
+	h.renderLogin(&req{W: w, R: r}, "", "")
+}
+
+// renderLogin shows the login form; the CAPTCHA is added after core.CaptchaAfter failures.
+func (h *Handler) renderLogin(q *req, email, errMsg string) {
+	data := map[string]any{"Email": email}
+	if h.App.LoginNeedsCaptcha("main", auth.ClientIP(q.R), email) {
+		ph, title := captcha.Texts("en")
+		data["Captcha"] = captcha.Widget("/_captcha", "", ph, title)
+	}
+	if errMsg != "" {
+		v := q.R.URL.Query()
+		v.Set("err", errMsg)
+		q.R.URL.RawQuery = v.Encode()
+	}
+	h.render(q, "login", "Log in", "", data)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	q := &req{W: w, R: r}
 	ip := auth.ClientIP(r)
 	email := strings.ToLower(strings.TrimSpace(r.FormValue("email")))
-	fail := func(msg string) {
-		v := r.URL.Query()
-		v.Set("err", msg)
-		r.URL.RawQuery = v.Encode()
-		h.render(q, "login", "Log in", "", map[string]string{"Email": email})
-	}
-	if !h.App.LoginLimit.Allow("main|" + ip) {
-		fail("Too many failed logins. Wait 15 minutes.")
+	if msg := h.App.LoginGate(r, "main", ip, email); msg != "" {
+		h.renderLogin(q, email, msg)
 		return
 	}
 	var id int64
@@ -162,11 +173,11 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		auth.BurnTime()
 	}
 	if err != nil || !auth.CheckPassword(hash, r.FormValue("password")) {
-		h.App.LoginLimit.Add("main|" + ip)
-		fail("Wrong email or password.")
+		h.App.LoginFailed("main", ip, email)
+		h.renderLogin(q, email, "Wrong email or password.")
 		return
 	}
-	h.App.LoginLimit.Reset("main|" + ip)
+	h.App.LoginOK("main", ip, email)
 	if _, err := h.App.Auth.Create(w, "main", "main:"+strconv.FormatInt(id, 10), "/"); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -345,7 +356,7 @@ func (h *Handler) siteOpen(q *req) {
 		q.back("/", "", err.Error())
 		return
 	}
-	http.Redirect(q.W, q.R, h.App.Cfg.Scheme+"://"+s.Domain+s.BasePath+"/admin/open?t="+url.QueryEscape(token), http.StatusSeeOther)
+	http.Redirect(q.W, q.R, h.App.Cfg.Scheme+"://"+s.Domain+s.BasePath+core.AdminPath+"/open?t="+url.QueryEscape(token), http.StatusSeeOther)
 }
 
 func (h *Handler) siteBackup(q *req) {
